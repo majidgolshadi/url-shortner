@@ -56,8 +56,8 @@ func (tg *tokenGenerator) next() int {
 	return tg.last
 }
 
-func NewUrl(originUrl string) string {
-	md5str := fmt.Sprintf("%x", md5.Sum([]byte(originUrl)))
+func NewUrl(longUrl string) string {
+	md5str := fmt.Sprintf("%x", md5.Sum([]byte(longUrl)))
 	tk := tg.mariadb.getToken(md5str)
 
 	if tk == "" {
@@ -65,29 +65,33 @@ func NewUrl(originUrl string) string {
 		tg.mariadb.persist(&urlMap{
 			MD5:   md5str,
 			token: tk,
-			url:   originUrl,
+			url:   longUrl,
 		})
 	}
 
 	return tk
 }
 
-func NewUrlWithCustomToken(originUrl string, customToken string) (string, error) {
-	md5str := fmt.Sprintf("%x", md5.Sum([]byte(originUrl)))
+func NewUrlWithCustomToken(longUrl string, customToken string) (string, error) {
+	md5str := fmt.Sprintf("%x", md5.Sum([]byte(longUrl)))
 	tk := tg.mariadb.getToken(md5str)
 
 	if tk == "" {
-		if tg.mariadb.tokenIsUsed(customToken) {
+		if !tg.mariadb.tokenIsUsed(customToken) {
 			return customToken, tg.mariadb.persist(&urlMap{
 				MD5:   md5str,
 				token: customToken,
-				url:   originUrl,
+				url:   longUrl,
 			})
 		}
 
-		return tk, errors.New("token is used, please choose another one")
+		return tk, errors.New("token is already in used, please choose another one")
 
 	}
 
 	return tk, errors.New("origin url was registered")
+}
+
+func GetLongUrl(token string) string {
+	return tg.mariadb.getTokenLogUrl(token)
 }

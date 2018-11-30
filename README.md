@@ -6,8 +6,10 @@ url shorten
 - (OK) persist url data in db
 - (OK) check link md5 with db
 - (OK) custom token
-- rest api
-- listen on multiple ip:port
+- (OK) rest api
+- (OK) redirect service
+- fetch page title
 - set custom header in redirect  
-- range recovery (monitoring) "agar rangi az ghalam oftade bood dobare be madar range haye ghabele estefade bargarde"
+- counter range recovery (monitoring)
 - caching
+- listen on multiple ip:port

@@ -24,21 +24,24 @@ func main() {
 	if err != nil {
 		log.Fatal(err.Error())
 	}
+	//
+	//
+	//println(url_shortner.NewUrl("http://google.com/man"))
+	//
+	//tk, err := url_shortner.NewUrlWithCustomToken("http://google.com", "cc")
+	//if err != nil {
+	//	println(err.Error())
+	//	println(tk)
+	//}
+	//
+	//tk1, err1 := url_shortner.NewUrlWithCustomToken("http://google.com/8aa", "nb")
+	//if err != nil {
+	//	println(err1.Error())
+	//	println(tk1)
+	//}
+	//
+	//println("without error", tk1)
 
 
-	println(url_shortner.NewUrl("http://google.com/man"))
-
-	tk, err := url_shortner.NewUrlWithCustomToken("http://google.com", "cc")
-	if err != nil {
-		println(err.Error())
-		println(tk)
-	}
-
-	tk1, err1 := url_shortner.NewUrlWithCustomToken("http://google.com/8aa", "nb")
-	if err != nil {
-		println(err1.Error())
-		println(tk1)
-	}
-
-	println("without error", tk1)
+	url_shortner.RunRestApi(":9001")
 }
