@@ -22,6 +22,7 @@ type urlMap struct {
 	MD5   string
 	url   string
 	token string
+	title string
 }
 
 func (cnf *MariaDbConfig) init() error {
@@ -67,7 +68,7 @@ func (m *mariadb) getToken(md5 string) string {
 }
 
 func (m *mariadb) persist(row *urlMap) (err error) {
-	_,err = m.conn.Exec("INSERT INTO url_map (md5, token, url) VALUES (?, ?, ?)", row.MD5, row.token, row.url)
+	_,err = m.conn.Exec("INSERT INTO url_map (md5, token, url, title) VALUES (?, ?, ?, ?)", row.MD5, row.token, row.url, row.title)
 	return
 }
 

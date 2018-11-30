@@ -8,7 +8,8 @@ url shorten
 - (OK) custom token
 - (OK) rest api
 - (OK) redirect service
-- fetch page title
+- (OK) fetch page title
+- JWT
 - set custom header in redirect  
 - counter range recovery (monitoring)
 - caching

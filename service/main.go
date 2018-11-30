@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/majidgolshadi/url-shortner"
 	"log"
+	"time"
 )
 
 func main() {
@@ -24,10 +25,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err.Error())
 	}
-	//
-	//
-	//println(url_shortner.NewUrl("http://google.com/man"))
-	//
+
+	startTime := time.Now()
+	println(url_shortner.NewUrl(";drop table map_url;"))
+	println(time.Since(startTime)/time.Millisecond)
+
 	//tk, err := url_shortner.NewUrlWithCustomToken("http://google.com", "cc")
 	//if err != nil {
 	//	println(err.Error())
@@ -41,7 +43,7 @@ func main() {
 	//}
 	//
 	//println("without error", tk1)
-
-
-	url_shortner.RunRestApi(":9001")
+	//
+	//
+	//url_shortner.RunRestApi(":9001")
 }

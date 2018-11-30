@@ -3,6 +3,7 @@ package url_shortner
 import (
 	"crypto/md5"
 	"fmt"
+	"github.com/badoux/goscraper"
 	"github.com/marksalpeter/token"
 	"github.com/pkg/errors"
 	"log"
@@ -57,6 +58,9 @@ func (tg *tokenGenerator) next() int {
 }
 
 func NewUrl(longUrl string) string {
+	title := make(chan string)
+
+	go func() {title <- getUrlTitle(longUrl)}()
 	md5str := fmt.Sprintf("%x", md5.Sum([]byte(longUrl)))
 	tk := tg.mariadb.getToken(md5str)
 
@@ -66,6 +70,7 @@ func NewUrl(longUrl string) string {
 			MD5:   md5str,
 			token: tk,
 			url:   longUrl,
+			title: <-title,
 		})
 	}
 
@@ -73,6 +78,9 @@ func NewUrl(longUrl string) string {
 }
 
 func NewUrlWithCustomToken(longUrl string, customToken string) (string, error) {
+	title := make(chan string)
+
+	go func() {title <- getUrlTitle(longUrl)}()
 	md5str := fmt.Sprintf("%x", md5.Sum([]byte(longUrl)))
 	tk := tg.mariadb.getToken(md5str)
 
@@ -82,6 +90,7 @@ func NewUrlWithCustomToken(longUrl string, customToken string) (string, error) {
 				MD5:   md5str,
 				token: customToken,
 				url:   longUrl,
+				title: <-title,
 			})
 		}
 
@@ -94,4 +103,14 @@ func NewUrlWithCustomToken(longUrl string, customToken string) (string, error) {
 
 func GetLongUrl(token string) string {
 	return tg.mariadb.getTokenLogUrl(token)
+}
+
+func getUrlTitle(longUrl string) string {
+	s, err := goscraper.Scrape(longUrl, 3)
+	if err != nil {
+		println(err)
+		return ""
+	}
+
+	return s.Preview.Title
 }

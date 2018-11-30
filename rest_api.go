@@ -10,13 +10,17 @@ func RunRestApi(port string) error {
 
 	router.GET("/:token", Redirect)
 
-	v1 := router.Group("/v1")
+	v1 := router.Group("/api/v1")
 	{
 		v1.POST("/register/url", RegisterUrl)
 		//v1.GET("/report/url/:token", RegisterClusterHandler)
 	}
 
 	return router.Run(port)
+}
+
+func Redirect(c *gin.Context) {
+	c.Redirect(http.StatusMovedPermanently, GetLongUrl(c.Param("token")))
 }
 
 type registerUrlInput struct {
@@ -49,9 +53,4 @@ func RegisterUrl(c *gin.Context) {
 		"long_url": input.LongUrl,
 		"hash": token,
 	})
-}
-
-
-func Redirect(c *gin.Context) {
-	c.Redirect(http.StatusMovedPermanently, GetLongUrl(c.Param("token")))
 }
