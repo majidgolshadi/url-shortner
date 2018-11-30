@@ -77,12 +77,17 @@ func NewUrlWithCustomToken(originUrl string, customToken string) (string, error)
 	tk := tg.mariadb.getToken(md5str)
 
 	if tk == "" {
-		return customToken, tg.mariadb.persist(&urlMap{
-			MD5:   md5str,
-			token: customToken,
-			url:   originUrl,
-		})
+		if tg.mariadb.tokenIsUsed(customToken) {
+			return customToken, tg.mariadb.persist(&urlMap{
+				MD5:   md5str,
+				token: customToken,
+				url:   originUrl,
+			})
+		}
+
+		return tk, errors.New("token is used, please choose another one")
+
 	}
 
-	return tk, errors.New("Origin url was registered")
+	return tk, errors.New("origin url was registered")
 }

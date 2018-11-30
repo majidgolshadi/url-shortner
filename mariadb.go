@@ -71,6 +71,17 @@ func (m *mariadb) persist(row *urlMap) (err error) {
 	return
 }
 
+func (m *mariadb) tokenIsUsed(token string) bool {
+	var row urlMap
+	err := m.conn.QueryRow("select md5 from url_map where token=?", token).Scan(&row.MD5)
+
+	if err != nil {
+		println(err.Error())
+	}
+
+	return row.MD5 != ""
+}
+
 func (m *mariadb) Close() {
 	m.conn.Close()
 }

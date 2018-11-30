@@ -26,8 +26,19 @@ func main() {
 	}
 
 
-	for i:=1; i < 1099; i++ {
-		token := url_shortner.NewUrl("http://google.com/man")
-		println(token)
+	println(url_shortner.NewUrl("http://google.com/man"))
+
+	tk, err := url_shortner.NewUrlWithCustomToken("http://google.com", "cc")
+	if err != nil {
+		println(err.Error())
+		println(tk)
 	}
+
+	tk1, err1 := url_shortner.NewUrlWithCustomToken("http://google.com/8aa", "nb")
+	if err != nil {
+		println(err1.Error())
+		println(tk1)
+	}
+
+	println("without error", tk1)
 }
