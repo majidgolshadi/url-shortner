@@ -8,7 +8,7 @@ import (
 )
 
 type MariaDbConfig struct {
-	Host string
+	Host     string
 	Username string
 	Password string
 	Database string
@@ -19,8 +19,8 @@ type mariadb struct {
 }
 
 type urlMap struct {
-	MD5 string
-	url string
+	MD5   string
+	url   string
 	token string
 }
 
@@ -66,11 +66,11 @@ func (m *mariadb) getToken(md5 string) string {
 	return row.token
 }
 
-func (m *mariadb) persist(row *urlMap) {
-	m.conn.Exec("INSERT INTO url_map (md5, token, url) VALUES (?, ?, ?)", row.MD5, row.token, row.url)
+func (m *mariadb) persist(row *urlMap) (err error) {
+	_,err = m.conn.Exec("INSERT INTO url_map (md5, token, url) VALUES (?, ?, ?)", row.MD5, row.token, row.url)
+	return
 }
 
-func (m *mariadb) Close()  {
+func (m *mariadb) Close() {
 	m.conn.Close()
 }
-

@@ -4,14 +4,15 @@ import (
 	"crypto/md5"
 	"fmt"
 	"github.com/marksalpeter/token"
+	"github.com/pkg/errors"
 	"log"
 )
 
 type tokenGenerator struct {
-	etcd *etcdDatasource
+	etcd    *etcdDatasource
 	mariadb *mariadb
-	last int
-	max  int
+	last    int
+	max     int
 }
 
 var tg tokenGenerator
@@ -62,11 +63,26 @@ func NewUrl(originUrl string) string {
 	if tk == "" {
 		tk = token.Token(tg.next()).Encode()
 		tg.mariadb.persist(&urlMap{
-			MD5: md5str,
+			MD5:   md5str,
 			token: tk,
-			url: originUrl,
+			url:   originUrl,
 		})
 	}
 
 	return tk
+}
+
+func NewUrlWithCustomToken(originUrl string, customToken string) (string, error) {
+	md5str := fmt.Sprintf("%x", md5.Sum([]byte(originUrl)))
+	tk := tg.mariadb.getToken(md5str)
+
+	if tk == "" {
+		return customToken, tg.mariadb.persist(&urlMap{
+			MD5:   md5str,
+			token: customToken,
+			url:   originUrl,
+		})
+	}
+
+	return tk, errors.New("Origin url was registered")
 }

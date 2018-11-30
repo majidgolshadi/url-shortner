@@ -28,9 +28,9 @@ type EtcdConfig struct {
 }
 
 type etcdDatasource struct {
-	client client.KeysAPI
-	cnf    *EtcdConfig
-	ctx    context.Context
+	client     client.KeysAPI
+	cnf        *EtcdConfig
+	ctx        context.Context
 	sleepCount int
 }
 
@@ -73,7 +73,7 @@ func NewEtcd(cnf *EtcdConfig) (*etcdDatasource, error) {
 	// create locker if not exist
 	// create counter if not exist
 
-	etcd :=  &etcdDatasource{
+	etcd := &etcdDatasource{
 		client: client.NewKeysAPI(cli),
 		cnf:    cnf,
 		ctx:    context.Background(),
@@ -116,7 +116,6 @@ check:
 		time.Sleep(time.Second)
 		e.sleepCount++
 		println("the counter is locked so sleep 1 sec to recheck after")
-
 
 		// restore service after 5 second
 		if e.sleepCount > 5 {
