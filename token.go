@@ -3,7 +3,7 @@ package url_shortner
 import (
 	"crypto/md5"
 	"fmt"
-	"github.com/badoux/goscraper"
+	"github.com/farmx/goscraper"
 	"github.com/marksalpeter/token"
 	"github.com/pkg/errors"
 	"log"
@@ -31,7 +31,7 @@ func InitTokenGenerator(config *EtcdConfig, dbConfig *MariaDbConfig) error {
 		return err
 	}
 
-	mdb, err := DbConnect(dbConfig)
+	mdb, err := dbConnect(dbConfig)
 	if err != nil {
 		return err
 	}
@@ -102,11 +102,11 @@ func NewUrlWithCustomToken(longUrl string, customToken string) (string, error) {
 }
 
 func GetLongUrl(token string) string {
-	return tg.mariadb.getTokenLogUrl(token)
+	return tg.mariadb.getLongUrl(token)
 }
 
 func getUrlTitle(longUrl string) string {
-	s, err := goscraper.Scrape(longUrl, 3)
+	s, err := goscraper.Scrape(longUrl, 1)
 	if err != nil {
 		println(err)
 		return ""

@@ -41,7 +41,7 @@ func (cnf *MariaDbConfig) init() error {
 	return nil
 }
 
-func DbConnect(cnf *MariaDbConfig) (*mariadb, error) {
+func dbConnect(cnf *MariaDbConfig) (*mariadb, error) {
 	if err := cnf.init(); err != nil {
 		return nil, err
 	}
@@ -83,7 +83,7 @@ func (m *mariadb) tokenIsUsed(token string) bool {
 	return row.MD5 != ""
 }
 
-func (m *mariadb) getTokenLogUrl(token string) string {
+func (m *mariadb) getLongUrl(token string) string {
 	var row urlMap
 	err := m.conn.QueryRow("select url from url_map where token=?", token).Scan(&row.url)
 
