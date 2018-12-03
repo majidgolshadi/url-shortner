@@ -20,6 +20,7 @@ type EtcdConfig struct {
 	ReqTimeout time.Duration
 	NodeId     string
 	RootKey    string
+	UnlockCheck int
 
 	checkpointKey       string
 	rangeKey            string
@@ -31,7 +32,7 @@ type etcdDatasource struct {
 	client     client.KeysAPI
 	cnf        *EtcdConfig
 	ctx        context.Context
-	sleepCount int
+	locker string
 }
 
 func (cnf *EtcdConfig) init() error {
@@ -70,9 +71,6 @@ func NewEtcd(cnf *EtcdConfig) (*etcdDatasource, error) {
 		return nil, err
 	}
 
-	// create locker if not exist
-	// create counter if not exist
-
 	etcd := &etcdDatasource{
 		client: client.NewKeysAPI(cli),
 		cnf:    cnf,
@@ -90,8 +88,23 @@ func (e *etcdDatasource) initBasicKeys() {
 		e.client.Set(e.ctx, e.cnf.rangeIncLockFlagKey, UNLOCK, nil)
 	}
 
+	go e.watchOnLocker()
+
 	if _, err = e.client.Get(e.ctx, e.cnf.rangeIncCounterKey, nil); err != nil {
 		e.client.Set(e.ctx, e.cnf.rangeIncCounterKey, "0", nil)
+	}
+}
+
+func (e *etcdDatasource) watchOnLocker() {
+	watcher := e.client.Watcher(e.cnf.rangeIncLockFlagKey, &client.WatcherOptions{})
+
+	for true {
+		res, err := watcher.Next(context.Background())
+		if err != nil {
+			println(err.Error())
+		} else {
+			e.locker = res.Node.Value
+		}
 	}
 }
 
@@ -100,32 +113,22 @@ func (e *etcdDatasource) checkCriticalRequirements() (err error) {
 	return
 }
 
-func (e *etcdDatasource) restoreStartPoint() (int, int, error) {
+func (e *etcdDatasource) getRestoreRange() (int, int, error) {
 	data, err := e.client.Get(e.ctx, e.cnf.checkpointKey, nil)
 	if err != nil {
-		return e.getNewRange()
+		return e.getNextRange()
 	}
 
 	return valueSplitter(data.Node.Value)
 }
 
-func (e *etcdDatasource) getNewRange() (start int, end int, err error) {
-check:
-	data, _ := e.client.Get(e.ctx, e.cnf.rangeIncLockFlagKey, nil)
-	if data.Node.Value != UNLOCK {
+func (e *etcdDatasource) getNextRange() (start int, end int, err error) {
+	for count := 0; count < e.cnf.UnlockCheck && e.locker != UNLOCK; count++ {
+		println("the counter is locked; sleep 1 sec to recheck again")
 		time.Sleep(time.Second)
-		e.sleepCount++
-		println("the counter is locked so sleep 1 sec to recheck after")
-
-		// restore service after 5 second
-		if e.sleepCount > 5 {
-			e.sleepCount = 0
-			e.client.Update(e.ctx, e.cnf.rangeIncLockFlagKey, UNLOCK)
-		}
-
-		goto check
 	}
 
+	// lock access
 	if _, err = e.client.Update(e.ctx, e.cnf.rangeIncLockFlagKey, LOCK); err != nil {
 		return
 	}
@@ -136,16 +139,16 @@ check:
 	counter++
 	e.client.Set(e.ctx, e.cnf.rangeIncCounterKey, strconv.Itoa(counter), nil)
 
-	// fetch range
+	// fetch range based on counter
 	rangeStr, err := e.client.Get(e.ctx, fmt.Sprintf("%s/%d", e.cnf.rangeKey, counter), nil)
 	if err != nil {
 		panic(err.Error())
 	}
 
-	// init return numbers
 	start, end, err = valueSplitter(rangeStr.Node.Value)
-	e.save(start, end)
+	e.commit(start, end)
 
+	// release the locker
 	if _, err = e.client.Update(e.ctx, e.cnf.rangeIncLockFlagKey, UNLOCK); err != nil {
 		return
 	}
@@ -155,11 +158,9 @@ check:
 
 // to improve performance on high load you can commit changes after "n" change
 // if you want to save count number after "n" change you must add +n to restore counter
-func (e *etcdDatasource) save(counter int, end int) {
+func (e *etcdDatasource) commit(counter int, end int) error {
 	_, err := e.client.Set(e.ctx, e.cnf.checkpointKey, fmt.Sprintf("%d-%d", counter, end), nil)
-	if err != nil {
-		println(err.Error())
-	}
+	return err
 }
 
 // watch on lock

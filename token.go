@@ -6,30 +6,17 @@ import (
 	"github.com/farmx/goscraper"
 	"github.com/marksalpeter/token"
 	"github.com/pkg/errors"
-	"log"
 )
 
 type tokenGenerator struct {
-	etcd    *etcdDatasource
+	counter    counter
 	mariadb *mariadb
-	last    int
-	max     int
 }
 
 var tg tokenGenerator
 
-func InitTokenGenerator(config *EtcdConfig, dbConfig *MariaDbConfig) error {
-	etcd, err := NewEtcd(config)
-	if err != nil {
-		return err
-	}
-
-	tg.etcd = etcd
-
-	tg.last, tg.max, err = tg.etcd.restoreStartPoint()
-	if err != nil {
-		return err
-	}
+func NewTokenGenerator(counter counter, dbConfig *MariaDbConfig) error {
+	tg.counter = counter
 
 	mdb, err := dbConnect(dbConfig)
 	if err != nil {
@@ -37,24 +24,7 @@ func InitTokenGenerator(config *EtcdConfig, dbConfig *MariaDbConfig) error {
 	}
 
 	tg.mariadb = mdb
-
 	return nil
-}
-
-func (tg *tokenGenerator) next() int {
-	if tg.last+1 > tg.max {
-		var err error
-		tg.last, tg.max, err = tg.etcd.getNewRange()
-
-		if err != nil {
-			log.Fatal(err.Error())
-		}
-	}
-
-	tg.last += 1
-
-	tg.etcd.save(tg.last, tg.max)
-	return tg.last
 }
 
 func NewUrl(longUrl string) string {
@@ -65,7 +35,7 @@ func NewUrl(longUrl string) string {
 	tk := tg.mariadb.getToken(md5str)
 
 	if tk == "" {
-		tk = token.Token(tg.next()).Encode()
+		tk = token.Token(tg.counter.next()).Encode()
 		tg.mariadb.persist(&urlMap{
 			MD5:   md5str,
 			token: tk,

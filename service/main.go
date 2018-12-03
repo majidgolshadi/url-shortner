@@ -27,7 +27,7 @@ func main() {
 	}
 
 	startTime := time.Now()
-	println(url_shortner.NewUrl("https://github.com/etcd-io/etcd/tree/master/client"))
+	println(url_shortner.NewUrl("http://google.com"))
 	println(time.Since(startTime)/time.Millisecond)
 
 	//tk, err := url_shortner.NewUrlWithCustomToken("http://google.com", "cc")
