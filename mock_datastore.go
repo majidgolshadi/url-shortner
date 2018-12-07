@@ -32,3 +32,7 @@ func (d *MockDataStore) getLongUrl(token string) string {
 
 	return "http://real-domain.com"
 }
+
+func (d *MockDataStore) authorizedUser(username string, password string) bool {
+	return true
+}

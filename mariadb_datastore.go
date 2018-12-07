@@ -25,6 +25,12 @@ type urlMap struct {
 	title string
 }
 
+type apiUser struct {
+	Username string
+	Password string
+}
+
+
 func (cnf *MariaDbConfig) init() error {
 	if cnf.Host == "" {
 		return errors.New("host does not set")
@@ -92,6 +98,17 @@ func (m *mariadb) getLongUrl(token string) string {
 	}
 
 	return row.url
+}
+
+func (m *mariadb) authorizedUser(username string, password string) bool {
+	var row apiUser
+	err := m.conn.QueryRow("select username from api_users where username=? and password=?", username, password).Scan(&row.Username)
+
+	if err != nil {
+		println(err.Error())
+	}
+
+	return row.Username != ""
 }
 
 func (m *mariadb) Close() {

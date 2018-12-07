@@ -2,24 +2,40 @@ package url_shortner
 
 import (
 	"github.com/gin-gonic/gin"
+	"log"
 	"net/http"
+	"time"
 )
 
 var _tokenGenerator *tokenGenerator
 
-func RunRestApi(tg *tokenGenerator, port string) error {
-	router := gin.Default()
+func RunRestApi(tg *tokenGenerator, datastore datastore, apiSecretKey string, port string) error {
 	_tokenGenerator = tg
 
-	router.GET("/:token", Redirect)
+	authMiddleware, err := newAuthMiddleware(&authMiddlewareConfig{
+		realm: "farmx url shortner",
+		identityKey: "id",
+		secretKey: apiSecretKey,
+		timeout: time.Hour,
+		maxRefresh: time.Hour,
+	}, datastore)
 
-	v1 := router.Group("/api/v1")
-	{
-		v1.POST("/register/url", RegisterUrl)
-		//v1.GET("/report/url/:token", RegisterClusterHandler)
+	if err != nil {
+		log.Fatal(err.Error())
 	}
 
-	return router.Run(port)
+	route := gin.Default()
+
+	route.GET("/:token", Redirect)
+	route.POST("/login", authMiddleware.LoginHandler)
+
+	v1 := route.Group("/api/v1")
+	v1.Use(authMiddleware.MiddlewareFunc())
+	{
+		v1.POST("/register/url", RegisterUrl)
+	}
+
+	return route.Run(port)
 }
 
 func Redirect(c *gin.Context) {

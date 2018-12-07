@@ -10,7 +10,7 @@ url shorten
 - (OK) redirect service
 - (OK) fetch page title
 - (OK) Refactor
-- JWT
+- (OK) JWT
 - specific counter range for specific domain  
 - set custom header in redirect
 - counter range recovery (monitoring)

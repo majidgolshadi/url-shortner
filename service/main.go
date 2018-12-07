@@ -59,5 +59,5 @@ func main() {
 	println("without error", tk1)
 
 
-	url_shortner.RunRestApi(tg,":9001")
+	url_shortner.RunRestApi(tg, db, "secret key",":9001")
 }
