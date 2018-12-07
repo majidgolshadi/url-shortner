@@ -23,13 +23,18 @@ func main() {
 		log.Fatal(err.Error())
 	}
 
-
-	tg ,err := url_shortner.NewTokenGenerator(counter, &url_shortner.MariaDbConfig{
+	db ,err := url_shortner.DbConnect(&url_shortner.MariaDbConfig{
 		Host: "127.0.0.1:3306",
 		Username: "root",
 		Password: "123",
 		Database: "tiny_url",
 	})
+
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	tg := url_shortner.NewTokenGenerator(counter, db)
 
 	if err != nil {
 		log.Fatal(err.Error())

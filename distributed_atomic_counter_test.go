@@ -4,7 +4,7 @@ import "testing"
 
 func TestGetNextNumberInRange(t *testing.T) {
 
-	coordinator := &CoordinatorMock{
+	coordinator := &MockCoordinator{
 		Offset: 1,
 		Max: 100,
 	}
@@ -22,7 +22,7 @@ func TestGetNextNumberInRange(t *testing.T) {
 
 func TestGetNextNumberOutOfRange(t *testing.T) {
 
-	coordinator := &CoordinatorMock{
+	coordinator := &MockCoordinator{
 		Offset: 100,
 		Max: 100,
 	}

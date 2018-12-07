@@ -9,7 +9,7 @@ url shorten
 - (OK) rest api
 - (OK) redirect service
 - (OK) fetch page title
-- Refactor
+- (OK) Refactor
 - JWT
 - specific counter range for specific domain  
 - set custom header in redirect

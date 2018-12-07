@@ -10,19 +10,14 @@ import (
 
 type tokenGenerator struct {
 	counter    counter
-	mariadb *mariadb
+	datastore datastore
 }
 
-func NewTokenGenerator(counter counter, dbConfig *MariaDbConfig) (*tokenGenerator, error) {
-	mdb, err := dbConnect(dbConfig)
-	if err != nil {
-		return nil, err
-	}
-
+func NewTokenGenerator(counter counter, datastore datastore) *tokenGenerator {
 	return &tokenGenerator{
 		counter: counter,
-		mariadb: mdb,
-	},nil
+		datastore: datastore,
+	}
 }
 
 func (tg *tokenGenerator) NewUrl(longUrl string) string {
@@ -30,11 +25,11 @@ func (tg *tokenGenerator) NewUrl(longUrl string) string {
 
 	go func() {title <- tg.getUrlTitle(longUrl)}()
 	md5str := fmt.Sprintf("%x", md5.Sum([]byte(longUrl)))
-	tk := tg.mariadb.getToken(md5str)
+	tk := tg.datastore.getToken(md5str)
 
 	if tk == "" {
 		tk = token.Token(tg.counter.next()).Encode()
-		tg.mariadb.persist(&urlMap{
+		tg.datastore.persist(&urlMap{
 			MD5:   md5str,
 			token: tk,
 			url:   longUrl,
@@ -50,11 +45,11 @@ func (tg *tokenGenerator) NewUrlWithCustomToken(longUrl string, customToken stri
 
 	go func() {title <- tg.getUrlTitle(longUrl)}()
 	md5str := fmt.Sprintf("%x", md5.Sum([]byte(longUrl)))
-	tk := tg.mariadb.getToken(md5str)
+	tk := tg.datastore.getToken(md5str)
 
 	if tk == "" {
-		if !tg.mariadb.tokenIsUsed(customToken) {
-			return customToken, tg.mariadb.persist(&urlMap{
+		if !tg.datastore.tokenIsUsed(customToken) {
+			return customToken, tg.datastore.persist(&urlMap{
 				MD5:   md5str,
 				token: customToken,
 				url:   longUrl,
@@ -70,7 +65,7 @@ func (tg *tokenGenerator) NewUrlWithCustomToken(longUrl string, customToken stri
 }
 
 func (tg *tokenGenerator) GetLongUrl(token string) string {
-	return tg.mariadb.getLongUrl(token)
+	return tg.datastore.getLongUrl(token)
 }
 
 func (tg *tokenGenerator) getUrlTitle(longUrl string) string {

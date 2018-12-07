@@ -41,7 +41,7 @@ func (cnf *MariaDbConfig) init() error {
 	return nil
 }
 
-func dbConnect(cnf *MariaDbConfig) (*mariadb, error) {
+func DbConnect(cnf *MariaDbConfig) (*mariadb, error) {
 	if err := cnf.init(); err != nil {
 		return nil, err
 	}
