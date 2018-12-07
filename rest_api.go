@@ -5,8 +5,11 @@ import (
 	"net/http"
 )
 
-func RunRestApi(port string) error {
+var _tokenGenerator *tokenGenerator
+
+func RunRestApi(tg *tokenGenerator, port string) error {
 	router := gin.Default()
+	_tokenGenerator = tg
 
 	router.GET("/:token", Redirect)
 
@@ -20,7 +23,7 @@ func RunRestApi(port string) error {
 }
 
 func Redirect(c *gin.Context) {
-	c.Redirect(http.StatusMovedPermanently, GetLongUrl(c.Param("token")))
+	c.Redirect(http.StatusMovedPermanently, _tokenGenerator.GetLongUrl(c.Param("token")))
 }
 
 type registerUrlInput struct {
@@ -39,9 +42,9 @@ func RegisterUrl(c *gin.Context) {
 	}
 
 	if input.CustomName != "" {
-		token, err = NewUrlWithCustomToken(input.LongUrl, input.CustomName)
+		token, err = _tokenGenerator.NewUrlWithCustomToken(input.LongUrl, input.CustomName)
 	} else {
-		token = NewUrl(input.LongUrl)
+		token = _tokenGenerator.NewUrl(input.LongUrl)
 	}
 
 	if err != nil {

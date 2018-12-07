@@ -13,24 +13,22 @@ type tokenGenerator struct {
 	mariadb *mariadb
 }
 
-var tg tokenGenerator
-
-func NewTokenGenerator(counter counter, dbConfig *MariaDbConfig) error {
-	tg.counter = counter
-
+func NewTokenGenerator(counter counter, dbConfig *MariaDbConfig) (*tokenGenerator, error) {
 	mdb, err := dbConnect(dbConfig)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	tg.mariadb = mdb
-	return nil
+	return &tokenGenerator{
+		counter: counter,
+		mariadb: mdb,
+	},nil
 }
 
-func NewUrl(longUrl string) string {
+func (tg *tokenGenerator) NewUrl(longUrl string) string {
 	title := make(chan string)
 
-	go func() {title <- getUrlTitle(longUrl)}()
+	go func() {title <- tg.getUrlTitle(longUrl)}()
 	md5str := fmt.Sprintf("%x", md5.Sum([]byte(longUrl)))
 	tk := tg.mariadb.getToken(md5str)
 
@@ -47,10 +45,10 @@ func NewUrl(longUrl string) string {
 	return tk
 }
 
-func NewUrlWithCustomToken(longUrl string, customToken string) (string, error) {
+func (tg *tokenGenerator) NewUrlWithCustomToken(longUrl string, customToken string) (string, error) {
 	title := make(chan string)
 
-	go func() {title <- getUrlTitle(longUrl)}()
+	go func() {title <- tg.getUrlTitle(longUrl)}()
 	md5str := fmt.Sprintf("%x", md5.Sum([]byte(longUrl)))
 	tk := tg.mariadb.getToken(md5str)
 
@@ -71,11 +69,11 @@ func NewUrlWithCustomToken(longUrl string, customToken string) (string, error) {
 	return tk, errors.New("origin url was registered")
 }
 
-func GetLongUrl(token string) string {
+func (tg *tokenGenerator) GetLongUrl(token string) string {
 	return tg.mariadb.getLongUrl(token)
 }
 
-func getUrlTitle(longUrl string) string {
+func (tg *tokenGenerator) getUrlTitle(longUrl string) string {
 	s, err := goscraper.Scrape(longUrl, 1)
 	if err != nil {
 		println(err)

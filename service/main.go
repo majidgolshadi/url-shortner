@@ -8,42 +8,51 @@ import (
 
 func main() {
 
-	config := &url_shortner.EtcdConfig{
+	coordinator, err := url_shortner.NewEtcd(&url_shortner.EtcdConfig{
 		Hosts: []string{"http://127.0.0.1:2379"},
 		RootKey: "/service",
 		NodeId: "node1",
+	})
+
+	if err != nil {
+		log.Fatal(err.Error())
 	}
 
-	dbConfig := &url_shortner.MariaDbConfig{
+	counter, err := url_shortner.NewDistributedAtomicCounter(coordinator)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+
+	tg ,err := url_shortner.NewTokenGenerator(counter, &url_shortner.MariaDbConfig{
 		Host: "127.0.0.1:3306",
 		Username: "root",
 		Password: "123",
 		Database: "tiny_url",
-	}
+	})
 
-	err := url_shortner.InitTokenGenerator(config, dbConfig)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
 
 	startTime := time.Now()
-	println(url_shortner.NewUrl("http://google.com"))
+	println(tg.NewUrl("http://google.com/new_url"))
 	println(time.Since(startTime)/time.Millisecond)
 
-	//tk, err := url_shortner.NewUrlWithCustomToken("http://google.com", "cc")
-	//if err != nil {
-	//	println(err.Error())
-	//	println(tk)
-	//}
-	//
-	//tk1, err1 := url_shortner.NewUrlWithCustomToken("http://google.com/8aa", "nb")
-	//if err != nil {
-	//	println(err1.Error())
-	//	println(tk1)
-	//}
-	//
-	//println("without error", tk1)
-	//
-	//
-	//url_shortner.RunRestApi(":9001")
+	tk, err := tg.NewUrlWithCustomToken("http://google.com", "cc")
+	if err != nil {
+		println(err.Error())
+		println(tk)
+	}
+
+	tk1, err1 := tg.NewUrlWithCustomToken("http://google.com/8aa", "nb")
+	if err != nil {
+		println(err1.Error())
+		println(tk1)
+	}
+
+	println("without error", tk1)
+
+
+	url_shortner.RunRestApi(tg,":9001")
 }

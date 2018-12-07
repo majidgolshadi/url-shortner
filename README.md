@@ -11,7 +11,7 @@ url shorten
 - (OK) fetch page title
 - Refactor
 - JWT
-- set custom header in redirect  
+- specific counter range for specific domain  
+- set custom header in redirect
 - counter range recovery (monitoring)
 - caching
-- listen on multiple ip:port
