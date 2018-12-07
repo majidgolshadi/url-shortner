@@ -19,7 +19,9 @@ func NewDistributedAtomicCounter(coordinator coordinator) (*distributedAtomicCou
 }
 
 func (d* distributedAtomicCounter) next() int {
-	if d.offset+1 > d.max {
+	d.offset++
+
+	if d.offset > d.max {
 		var err error
 		d.offset, d.max, err = d.coordinator.getNextRange()
 
@@ -27,8 +29,6 @@ func (d* distributedAtomicCounter) next() int {
 			log.Fatal(err.Error())
 		}
 	}
-
-	d.offset++
 
 	d.coordinator.commit(d.offset, d.max)
 	return d.offset
