@@ -9,13 +9,13 @@ import (
 )
 
 type tokenGenerator struct {
-	counter    counter
+	counter   counter
 	datastore datastore
 }
 
 func NewTokenGenerator(counter counter, datastore datastore) *tokenGenerator {
 	return &tokenGenerator{
-		counter: counter,
+		counter:   counter,
 		datastore: datastore,
 	}
 }
@@ -23,7 +23,7 @@ func NewTokenGenerator(counter counter, datastore datastore) *tokenGenerator {
 func (tg *tokenGenerator) NewUrl(longUrl string) string {
 	title := make(chan string)
 
-	go func() {title <- tg.getUrlTitle(longUrl)}()
+	go func() { title <- tg.getUrlTitle(longUrl) }()
 	md5str := fmt.Sprintf("%x", md5.Sum([]byte(longUrl)))
 	tk := tg.datastore.getToken(md5str)
 
@@ -43,7 +43,7 @@ func (tg *tokenGenerator) NewUrl(longUrl string) string {
 func (tg *tokenGenerator) NewUrlWithCustomToken(longUrl string, customToken string) (string, error) {
 	title := make(chan string)
 
-	go func() {title <- tg.getUrlTitle(longUrl)}()
+	go func() { title <- tg.getUrlTitle(longUrl) }()
 	md5str := fmt.Sprintf("%x", md5.Sum([]byte(longUrl)))
 	tk := tg.datastore.getToken(md5str)
 

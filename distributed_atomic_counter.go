@@ -3,8 +3,8 @@ package url_shortner
 import "log"
 
 type distributedAtomicCounter struct {
-	offset    int
-	max     int
+	offset      int
+	max         int
 	coordinator coordinator
 }
 
@@ -13,12 +13,12 @@ func NewDistributedAtomicCounter(coordinator coordinator) (*distributedAtomicCou
 
 	return &distributedAtomicCounter{
 		coordinator: coordinator,
-		offset:        offset,
+		offset:      offset,
 		max:         max,
 	}, err
 }
 
-func (d* distributedAtomicCounter) next() int {
+func (d *distributedAtomicCounter) next() int {
 	d.offset++
 
 	if d.offset > d.max {

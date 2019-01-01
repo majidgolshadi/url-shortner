@@ -1,0 +1,21 @@
+rest_api_port=":9001"
+debug_port=":6060"
+api_secret_key="secret key"
+
+[log]
+format="json"
+log_level="debug"
+
+[mysql]
+address="127.0.0.1:3306"
+username="root"
+password="123"
+db="tiny_url"
+check_interval=12
+max_ideal_conn=10
+max_open_conn=20
+
+[etcd]
+address="http://127.0.0.1:2379"
+root_key="/service"
+node_id="node1"

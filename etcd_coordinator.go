@@ -16,10 +16,10 @@ const (
 )
 
 type EtcdConfig struct {
-	Hosts      []string
-	ReqTimeout time.Duration
-	NodeId     string
-	RootKey    string
+	Hosts       []string
+	ReqTimeout  time.Duration
+	NodeId      string
+	RootKey     string
 	UnlockCheck int
 
 	checkpointKey       string
@@ -29,9 +29,9 @@ type EtcdConfig struct {
 }
 
 type etcdDatasource struct {
-	client     client.KeysAPI
-	cnf        *EtcdConfig
-	ctx        context.Context
+	client client.KeysAPI
+	cnf    *EtcdConfig
+	ctx    context.Context
 	locker string
 }
 

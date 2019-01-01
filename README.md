@@ -11,7 +11,9 @@ url shorten
 - (OK) fetch page title
 - (OK) Refactor
 - (OK) JWT
+- (OK) configurable service
+- (OK) logging
+- use cassandra as a backend database
 - specific counter range for specific domain  
 - set custom header in redirect
-- counter range recovery (monitoring)
 - caching

@@ -7,11 +7,11 @@ import (
 )
 
 type authMiddlewareConfig struct {
-	realm string
-	secretKey string
+	realm       string
+	secretKey   string
 	identityKey string
-	timeout time.Duration
-	maxRefresh time.Duration
+	timeout     time.Duration
+	maxRefresh  time.Duration
 }
 
 type login struct {
@@ -20,7 +20,7 @@ type login struct {
 }
 
 type User struct {
-	UserName  string
+	UserName string
 }
 
 func newAuthMiddleware(cnf *authMiddlewareConfig, datastore datastore) (*jwt.GinJWTMiddleware, error) {
@@ -56,7 +56,7 @@ func newAuthMiddleware(cnf *authMiddlewareConfig, datastore datastore) (*jwt.Gin
 
 			if datastore.authorizedUser(loginData.Username, loginData.Password) {
 				return &User{
-					UserName:  loginData.Username,
+					UserName: loginData.Username,
 				}, nil
 			}
 
@@ -77,8 +77,8 @@ func newAuthMiddleware(cnf *authMiddlewareConfig, datastore datastore) (*jwt.Gin
 				"message": message,
 			})
 		},
-		TokenLookup: "header: Authorization",
+		TokenLookup:   "header: Authorization",
 		TokenHeadName: "Farmx",
-		TimeFunc: time.Now,
+		TimeFunc:      time.Now,
 	})
 }

@@ -1,8 +1,8 @@
 package url_shortner
 
 type MockCoordinator struct {
-	Offset int
-	Max int
+	Offset       int
+	Max          int
 	CommitCalled bool
 }
 
@@ -12,7 +12,7 @@ func (c *MockCoordinator) getRestoreRange() (offset int, end int, err error) {
 
 func (c *MockCoordinator) getNextRange() (start int, end int, err error) {
 	rangNum := 100
-	start = (rangNum * 2)+ c.Max + 1
+	start = (rangNum * 2) + c.Max + 1
 	end = start + rangNum
 
 	return

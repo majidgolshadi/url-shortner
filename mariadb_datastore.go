@@ -5,13 +5,16 @@ import (
 	"errors"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
+	log "github.com/sirupsen/logrus"
 )
 
 type MariaDbConfig struct {
-	Host     string
-	Username string
-	Password string
-	Database string
+	Address      string
+	Username     string
+	Password     string
+	Database     string
+	MaxOpenConn  int
+	MaxIdealConn int
 }
 
 type mariadb struct {
@@ -30,18 +33,25 @@ type apiUser struct {
 	Password string
 }
 
-
-func (cnf *MariaDbConfig) init() error {
-	if cnf.Host == "" {
-		return errors.New("host does not set")
-	}
-
-	if cnf.Database == "" {
+func (opt *MariaDbConfig) init() error {
+	if opt.Database == "" {
 		return errors.New("database name does not set")
 	}
 
-	if cnf.Username == "" {
-		return errors.New("username does not set")
+	if opt.Address == "" {
+		opt.Address = "127.0.0.1:3306"
+	}
+
+	if opt.Username == "" {
+		opt.Username = "root"
+	}
+
+	if opt.MaxOpenConn == 0 {
+		opt.MaxOpenConn = 10
+	}
+
+	if opt.MaxIdealConn == 0 {
+		opt.MaxIdealConn = 10
 	}
 
 	return nil
@@ -52,11 +62,16 @@ func DbConnect(cnf *MariaDbConfig) (*mariadb, error) {
 		return nil, err
 	}
 
-	datasourceName := fmt.Sprintf("%s:%s@tcp(%s)/%s", cnf.Username, cnf.Password, cnf.Host, cnf.Database)
+	datasourceName := fmt.Sprintf("%s:%s@tcp(%s)/%s", cnf.Username, cnf.Password, cnf.Address, cnf.Database)
 	db, err := sql.Open("mysql", datasourceName)
 	if err != nil {
 		return nil, err
 	}
+
+	db.SetMaxIdleConns(cnf.MaxIdealConn)
+	db.SetMaxOpenConns(cnf.MaxOpenConn)
+
+	log.Info("mysql connect established to ", cnf.Address)
 
 	return &mariadb{
 		conn: db,
@@ -65,8 +80,9 @@ func DbConnect(cnf *MariaDbConfig) (*mariadb, error) {
 
 func (m *mariadb) getToken(md5 string) string {
 	var row urlMap
-	err := m.conn.QueryRow("select token from url_map where md5=?", md5).Scan(&row.token)
+	err := m.conn.QueryRow("SELECT token FROM url_map WHERE md5=?", md5).Scan(&row.token)
 	if err != nil {
+		log.Error("MariaDB get token error: ", err.Error())
 		return ""
 	}
 
@@ -74,16 +90,16 @@ func (m *mariadb) getToken(md5 string) string {
 }
 
 func (m *mariadb) persist(row *urlMap) (err error) {
-	_,err = m.conn.Exec("INSERT INTO url_map (md5, token, url, title) VALUES (?, ?, ?, ?)", row.MD5, row.token, row.url, row.title)
+	_, err = m.conn.Exec("INSERT INTO url_map (md5, token, url, title) VALUES (?, ?, ?, ?)", row.MD5, row.token, row.url, row.title)
 	return
 }
 
 func (m *mariadb) tokenIsUsed(token string) bool {
 	var row urlMap
-	err := m.conn.QueryRow("select md5 from url_map where token=?", token).Scan(&row.MD5)
+	err := m.conn.QueryRow("SELECT md5 FROM url_map WHERE token=?", token).Scan(&row.MD5)
 
 	if err != nil {
-		println(err.Error())
+		log.Error("MariaDB token is used error: ", err.Error())
 	}
 
 	return row.MD5 != ""
@@ -91,10 +107,10 @@ func (m *mariadb) tokenIsUsed(token string) bool {
 
 func (m *mariadb) getLongUrl(token string) string {
 	var row urlMap
-	err := m.conn.QueryRow("select url from url_map where token=?", token).Scan(&row.url)
+	err := m.conn.QueryRow("SELECT url FROM url_map WHERE token=?", token).Scan(&row.url)
 
 	if err != nil {
-		println(err.Error())
+		log.Error("MariaDB get long url error: ", err.Error())
 	}
 
 	return row.url
@@ -102,10 +118,10 @@ func (m *mariadb) getLongUrl(token string) string {
 
 func (m *mariadb) authorizedUser(username string, password string) bool {
 	var row apiUser
-	err := m.conn.QueryRow("select username from api_users where username=? and password=?", username, password).Scan(&row.Username)
+	err := m.conn.QueryRow("SELECT username FROM api_users WHERE username=? AND password=?", username, password).Scan(&row.Username)
 
 	if err != nil {
-		println(err.Error())
+		log.Error("MariaDB authorized user error: ", err.Error())
 	}
 
 	return row.Username != ""

@@ -13,11 +13,11 @@ func RunRestApi(tg *tokenGenerator, datastore datastore, apiSecretKey string, po
 	_tokenGenerator = tg
 
 	authMiddleware, err := newAuthMiddleware(&authMiddlewareConfig{
-		realm: "farmx url shortner",
+		realm:       "farmx url shortner",
 		identityKey: "id",
-		secretKey: apiSecretKey,
-		timeout: time.Hour,
-		maxRefresh: time.Hour,
+		secretKey:   apiSecretKey,
+		timeout:     time.Hour,
+		maxRefresh:  time.Hour,
 	}, datastore)
 
 	if err != nil {
@@ -43,7 +43,7 @@ func Redirect(c *gin.Context) {
 }
 
 type registerUrlInput struct {
-	LongUrl string `json:"long_url" binding:"required"`
+	LongUrl    string `json:"long_url" binding:"required"`
 	CustomName string `json:"custom_name"`
 }
 
@@ -70,6 +70,6 @@ func RegisterUrl(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{
 		"long_url": input.LongUrl,
-		"hash": token,
+		"hash":     token,
 	})
 }
