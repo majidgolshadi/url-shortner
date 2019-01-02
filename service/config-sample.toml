@@ -11,7 +11,6 @@ address="127.0.0.1:3306"
 username="root"
 password="123"
 db="tiny_url"
-check_interval=12
 max_ideal_conn=10
 max_open_conn=20
 
@@ -19,10 +18,7 @@ max_open_conn=20
 address="127.0.0.1:9042"
 username="root"
 password="123"
-db="tiny_url"
-check_interval=12
-max_ideal_conn=10
-max_open_conn=20
+keyspace="tinyurl"
 
 [etcd]
 address="http://127.0.0.1:2379"
