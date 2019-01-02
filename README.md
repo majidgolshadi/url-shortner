@@ -8,20 +8,16 @@ this application use **Base62** to create short url based on distributed sequenc
 
 feature list
 ------------
-- (OK) get range counter from etcd
-- (OK) commit node counter to etcd
-- (OK) recover counter checkpoint from etcd 
-- (OK) persist url data in db
-- (OK) check link md5 with db
-- (OK) custom token
-- (OK) rest api
-- (OK) redirect service
+- (OK) Get range counter from etcd
+- (OK) Commit used counter and recover that from etcd 
+- (OK) Check link md5 to avoid data duplication
+- (OK) Rest API with JWT support
+- (OK) Register new URL
+- (OK) Define custom token for specific URL
 - (OK) fetch page title
-- (OK) Refactor
-- (OK) JWT
-- (OK) configurable service
-- (OK) logging
-- (OK) use cassandra as a backend database
+- (OK) Toml base configurable service
+- (OK) Generate user friendly log with configurable log level
+- (OK) Use Cassandra or MariaDB as a backend database
 - specific counter range for specific domain  
 - set custom header in redirect
 
