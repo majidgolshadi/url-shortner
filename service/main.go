@@ -7,6 +7,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"strings"
 )
 
 type config struct {
@@ -14,9 +15,10 @@ type config struct {
 	DebugPort    string `toml:"debug_port"`
 	ApiSecretKey string `toml:"api_secret_key"`
 
-	Log   Log
-	Mysql Mysql
-	Etcd  Etcd
+	Log       Log
+	Mysql     Mysql
+	Cassandra Cassandra
+	Etcd      Etcd
 }
 
 type Log struct {
@@ -30,9 +32,15 @@ type Mysql struct {
 	Username           string `toml:"username"`
 	Password           string `toml:"password"`
 	DB                 string `toml:"db"`
-	CheckInterval      int    `toml:"check_interval"`
 	MaxIdealConnection int    `toml:"max_ideal_conn"`
 	MaxOpenConnection  int    `toml:"max_open_conn"`
+}
+
+type Cassandra struct {
+	Address  string `toml:"address"`
+	Username string `toml:"username"`
+	Password string `toml:"password"`
+	Keyspace string `toml:"keyspace"`
 }
 
 type Etcd struct {
@@ -56,6 +64,9 @@ func main() {
 		log.Println(http.ListenAndServe(cnf.DebugPort, nil))
 	}()
 
+	///////////////////////////////////////////////////////////
+	// Etcd
+	///////////////////////////////////////////////////////////
 	coordinator, err := url_shortner.NewEtcd(&url_shortner.EtcdConfig{
 		Hosts:   []string{cnf.Etcd.Address},
 		RootKey: cnf.Etcd.RootKey,
@@ -71,19 +82,58 @@ func main() {
 		log.Fatal(err.Error())
 	}
 
-	db, err := url_shortner.DbConnect(&url_shortner.MariaDbConfig{
-		Address:      cnf.Mysql.Address,
-		Username:     cnf.Mysql.Username,
-		Password:     cnf.Mysql.Password,
-		Database:     cnf.Mysql.DB,
-		MaxIdealConn: cnf.Mysql.MaxIdealConnection,
-		MaxOpenConn:  cnf.Mysql.MaxOpenConnection,
-	})
+	///////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////
+	// DataStore
+	///////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////
 
-	if err != nil {
-		log.Fatal(err.Error())
+	var db url_shortner.Datastore
+
+	///////////////////////////////////////////////////////////
+	// MariaDB
+	///////////////////////////////////////////////////////////
+	if cnf.Mysql.DB != "" {
+		db, err := url_shortner.NewMariadb(&url_shortner.MariaDbConfig{
+			Address:      cnf.Mysql.Address,
+			Username:     cnf.Mysql.Username,
+			Password:     cnf.Mysql.Password,
+			Database:     cnf.Mysql.DB,
+			MaxIdealConn: cnf.Mysql.MaxIdealConnection,
+			MaxOpenConn:  cnf.Mysql.MaxOpenConnection,
+		})
+
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+
+		if err := db.Connect(); err != nil {
+			log.Fatal(err.Error())
+		}
+
+	} else {
+		///////////////////////////////////////////////////////////
+		// Cassandra
+		///////////////////////////////////////////////////////////
+		db, err := url_shortner.NewCassandra(&url_shortner.CassandraConfig{
+			Address:  strings.Split(cnf.Cassandra.Address, ","),
+			Username: cnf.Cassandra.Username,
+			Password: cnf.Cassandra.Password,
+			Keyspace: cnf.Cassandra.Keyspace,
+		})
+
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+
+		if err := db.Connect(); err != nil {
+			log.Fatal(err.Error())
+		}
 	}
 
+	///////////////////////////////////////////////////////////
+	// Rest API
+	///////////////////////////////////////////////////////////
 	url_shortner.RunRestApi(
 		url_shortner.NewTokenGenerator(counter, db),
 		db, cnf.ApiSecretKey, cnf.HttpPort)

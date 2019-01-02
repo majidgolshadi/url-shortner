@@ -1,6 +1,7 @@
 package url_shortner
 
-type datastore interface {
+type Datastore interface {
+	Connect() error
 	getToken(md5 string) string
 	persist(row *urlMap) error
 	tokenIsUsed(token string) bool

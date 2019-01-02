@@ -18,6 +18,7 @@ type MariaDbConfig struct {
 }
 
 type mariadb struct {
+	cnf  *MariaDbConfig
 	conn *sql.DB
 }
 
@@ -57,25 +58,30 @@ func (opt *MariaDbConfig) init() error {
 	return nil
 }
 
-func DbConnect(cnf *MariaDbConfig) (*mariadb, error) {
+func NewMariadb(cnf *MariaDbConfig) (*mariadb, error) {
 	if err := cnf.init(); err != nil {
 		return nil, err
 	}
 
-	datasourceName := fmt.Sprintf("%s:%s@tcp(%s)/%s", cnf.Username, cnf.Password, cnf.Address, cnf.Database)
-	db, err := sql.Open("mysql", datasourceName)
+	return &mariadb{
+		cnf: cnf,
+	}, nil
+}
+
+func (m *mariadb) Connect() error {
+	datasourceName := fmt.Sprintf("%s:%s@tcp(%s)/%s", m.cnf.Username, m.cnf.Password, m.cnf.Address, m.cnf.Database)
+	conn, err := sql.Open("mysql", datasourceName)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	db.SetMaxIdleConns(cnf.MaxIdealConn)
-	db.SetMaxOpenConns(cnf.MaxOpenConn)
+	conn.SetMaxIdleConns(m.cnf.MaxIdealConn)
+	conn.SetMaxOpenConns(m.cnf.MaxOpenConn)
 
-	log.Info("mysql connect established to ", cnf.Address)
+	log.Info("mysql connect established to ", m.cnf.Address)
+	m.conn = conn
 
-	return &mariadb{
-		conn: db,
-	}, nil
+	return nil
 }
 
 func (m *mariadb) getToken(md5 string) string {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"go.etcd.io/etcd/client"
 	"strconv"
 	"strings"
@@ -93,9 +94,11 @@ func (e *etcdDatasource) initBasicKeys() {
 	if _, err = e.client.Get(e.ctx, e.cnf.rangeIncCounterKey, nil); err != nil {
 		e.client.Set(e.ctx, e.cnf.rangeIncCounterKey, "0", nil)
 	}
+	log.Info("etcd init required keys")
 }
 
 func (e *etcdDatasource) watchOnLocker() {
+	log.Info("etcd watch on lock")
 	watcher := e.client.Watcher(e.cnf.rangeIncLockFlagKey, &client.WatcherOptions{})
 
 	for true {
@@ -110,6 +113,7 @@ func (e *etcdDatasource) watchOnLocker() {
 
 func (e *etcdDatasource) checkCriticalRequirements() (err error) {
 	_, err = e.client.Get(e.ctx, e.cnf.rangeKey, nil)
+	log.Info("etcd requirements checked")
 	return
 }
 
@@ -124,12 +128,13 @@ func (e *etcdDatasource) getRestoreRange() (int, int, error) {
 
 func (e *etcdDatasource) getNextRange() (start int, end int, err error) {
 	for count := 0; count < e.cnf.UnlockCheck && e.locker != UNLOCK; count++ {
-		println("the counter is locked; sleep 1 sec to recheck again")
+		log.Warn("the counter is locked; sleep 1 sec to recheck again")
 		time.Sleep(time.Second)
 	}
 
-	// lock access
+	log.Info("etcd lock counter range")
 	if _, err = e.client.Update(e.ctx, e.cnf.rangeIncLockFlagKey, LOCK); err != nil {
+		log.Error("etcd lock counter range error: ", err.Error())
 		return
 	}
 
@@ -139,17 +144,18 @@ func (e *etcdDatasource) getNextRange() (start int, end int, err error) {
 	counter++
 	e.client.Set(e.ctx, e.cnf.rangeIncCounterKey, strconv.Itoa(counter), nil)
 
-	// fetch range based on counter
+	log.Info("etcd fetch range based on counter")
 	rangeStr, err := e.client.Get(e.ctx, fmt.Sprintf("%s/%d", e.cnf.rangeKey, counter), nil)
 	if err != nil {
-		panic(err.Error())
+		log.Fatal("etcd get range error: ", err.Error())
 	}
 
 	start, end, err = valueSplitter(rangeStr.Node.Value)
 	e.commit(start, end)
 
-	// release the locker
+	log.Info("etcd unlock counter range")
 	if _, err = e.client.Update(e.ctx, e.cnf.rangeIncLockFlagKey, UNLOCK); err != nil {
+		log.Error("etcd unlock counter range error: ", err.Error())
 		return
 	}
 
@@ -162,9 +168,6 @@ func (e *etcdDatasource) commit(counter int, end int) error {
 	_, err := e.client.Set(e.ctx, e.cnf.checkpointKey, fmt.Sprintf("%d-%d", counter, end), nil)
 	return err
 }
-
-// watch on lock
-// register service
 
 func valueSplitter(value string) (int, int, error) {
 	numbers := strings.Split(value, "-")
