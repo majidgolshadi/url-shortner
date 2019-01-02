@@ -2,11 +2,12 @@ url shorten
 ===========
 Url shorten is an application that map long url to short one. is use Etcd as a coordinator and [**Cassandra**](http://cassandra.apache.org/) or [**Mariadb**](https://mariadb.org/) as it's dataStore(It's depend on your business size).
 so you can scale service up very easy.
+this application use **Base62** to create short url based on distributed sequence number and store [MD5](https://en.wikipedia.org/wiki/MD5) for each origin URL to avoid from data duplication.
 
 ![arch](doc/pic/architecture.png)
 
-features
--------
+feature list
+------------
 - (OK) get range counter from etcd
 - (OK) commit node counter to etcd
 - (OK) recover counter checkpoint from etcd 
@@ -57,3 +58,32 @@ address="http://127.0.0.1:2379"
 root_key="/service" #All application services must be regiter under the same domain
 node_id="node1"     #Each application node must have unique node_id
 ```
+
+Rest API
+--------
+the REST API are Jwt support so you must login first and then use your token to send rest of your commands
+
+|URL|type|Description|
+|---|---|---|
+|<DOMAIN>/<short-token>|GET|redirect to origin url|
+|<DOMAIN>/login|POST|login and get your specific token to communicate with|
+|<DOMAIN>/api/v1/register/url|POST|Get a short url for specific domain| 
+
+Debugging
+---------
+Debugging rest APIs
+
+- http://`<SERVER_IP>:<debug_port>`/debug/pprof/goroutine
+- http://`<SERVER_IP>:<debug_port>`/debug/pprof/heap
+- http://`<SERVER_IP>:<debug_port>`/debug/pprof/threadcreate
+- http://`<SERVER_IP>:<debug_port>`/debug/pprof/block
+- http://`<SERVER_IP>:<debug_port>`/debug/pprof/mutex
+- http://`<SERVER_IP>:<debug_port>`/debug/pprof/profile
+- http://`<SERVER_IP>:<debug_port>`/debug/pprof/trace?seconds=5
+
+Call `http://<SERVER_IP>:<debug_port>/debug/pprof/trace?seconds=5` to get 5 second of application trace file and then you can see application trace. With
+`go tool trace <DOWNLOADED_FILE_PATH>` command you can see what's happen in application on that period of time
+
+Call `http://<SERVER_IP>:<debug_port>/debug/pprof/profile` to get service profile and then run `go tool pprof <DOWNLOADED_FILE_PATH>` command go see more details about appli   cation processes
+
+To get more inform
