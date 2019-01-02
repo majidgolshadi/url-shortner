@@ -61,9 +61,9 @@ the REST API are Jwt support so you must login first and then use your token to 
 
 |URL|type|Description|
 |---|---|---|
-|<DOMAIN>/<short-token>|GET|redirect to origin url|
-|<DOMAIN>/login|POST|login and get your specific token to communicate with|
-|<DOMAIN>/api/v1/register/url|POST|Get a short url for specific domain| 
+|`<DOMAIN>/<short-token>`|GET|redirect to origin url|
+|`<DOMAIN>/login`|POST|login and get your specific token to communicate with|
+|`<DOMAIN>/api/v1/register/url`|POST|Get a short url for specific domain| 
 
 Debugging
 ---------
