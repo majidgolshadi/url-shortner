@@ -9,7 +9,7 @@ this application use **Base62** to create short url based on distributed sequenc
 feature list
 ------------
 - (OK) Get range counter from etcd
-- (OK) Commit used counter and recover that from etcd 
+- (OK) Commit used counter and recover that from etcd
 - (OK) Check link md5 to avoid data duplication
 - (OK) Rest API with JWT support
 - (OK) Register new URL
@@ -18,12 +18,12 @@ feature list
 - (OK) Toml base configurable service
 - (OK) Generate user friendly log with configurable log level
 - (OK) Use Cassandra or MariaDB as a backend database
-- specific counter range for specific domain  
+- specific counter range for specific domain
 - set custom header in redirect
 
 Installation
 ------------
-put `config.toml` near application binary. the configuration file must contain
+put `config.toml` near application binary or specify `-config` flag. the configuration file must contain
 ```toml
 rest_api_port=":9001" #Rest api interface and port listen on
 debug_port=":6060"
@@ -63,7 +63,7 @@ the REST API are Jwt support so you must login first and then use your token to 
 |---|---|---|
 |`<DOMAIN>/<short-token>`|GET|redirect to origin url|
 |`<DOMAIN>/login`|POST|login and get your specific token to communicate with|
-|`<DOMAIN>/api/v1/register/url`|POST|Get a short url for specific domain| 
+|`<DOMAIN>/api/v1/register/url`|POST|Get a short url for specific domain|
 
 Debugging
 ---------

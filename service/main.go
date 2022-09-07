@@ -1,13 +1,14 @@
 package main
 
 import (
-	"github.com/BurntSushi/toml"
-	"github.com/majidgolshadi/url-shortner"
-	log "github.com/sirupsen/logrus"
+	"flag"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"strings"
+
+	"github.com/BurntSushi/toml"
+	log "github.com/sirupsen/logrus"
 )
 
 type config struct {
@@ -53,7 +54,10 @@ func main() {
 	var cnf config
 	var err error
 
-	if _, err := toml.DecodeFile("config.toml", &cnf); err != nil {
+	configFilePath := flag.String("config", "config.toml", "specify config file path")
+	flag.Parse()
+
+	if _, err := toml.DecodeFile(*configFilePath, &cnf); err != nil {
 		log.Fatal("read configuration file error ", err.Error())
 	}
 
