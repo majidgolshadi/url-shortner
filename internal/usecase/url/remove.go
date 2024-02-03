@@ -1,7 +1,7 @@
 package url
 
 type DeleteDataStore interface {
-	DeleteUrl(token, url string) error
+	DeleteUrl(token string) error
 }
 
 type DeleteService struct {
@@ -9,5 +9,5 @@ type DeleteService struct {
 }
 
 func (s *DeleteService) Delete(token, url string) error {
-	return s.datastore.DeleteUrl(token, url)
+	return s.datastore.DeleteUrl(token)
 }

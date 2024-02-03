@@ -1,14 +1,15 @@
 package url
 
+import "github.com/majidgolshadi/url-shortner/internal/domain"
+
 type FetchDataStore interface {
-	// TODO: return domain url model instead of string
-	FetchUrl(token string) (string, error)
+	FetchUrl(token string) (*domain.Url, error)
 }
 
 type FetchService struct {
 	datastore FetchDataStore
 }
 
-func (s *FetchService) Fetch(token string) (string, error) {
+func (s *FetchService) Fetch(token string) (*domain.Url, error) {
 	return s.datastore.FetchUrl(token)
 }
