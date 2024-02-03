@@ -9,7 +9,7 @@ func TestGenerateToken(t *testing.T) {
 	tokenGen := &base64TokenGenerator{}
 
 	tests := map[string]struct {
-		id            uint64
+		id            uint
 		expectedToken string
 	}{
 		"less than 10 digit length ID": {
@@ -41,8 +41,8 @@ func TestKnownIssues(t *testing.T) {
 	tokenGen := &base64TokenGenerator{}
 
 	tests := map[string]struct {
-		firstID       uint64
-		secondID      uint64
+		firstID       uint
+		secondID      uint
 		expectedToken string
 	}{
 		"same token for two different ID with zero longer than 10 digit": {

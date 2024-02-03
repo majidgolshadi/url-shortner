@@ -6,26 +6,27 @@ import (
 	"github.com/majidgolshadi/url-shortner/internal/token"
 )
 
+const maxGeneratedTokenConflictRetry = 3
+
 type DataStore interface {
 	Save(url *domain.Url) error
 	Delete(token string) error
 	Fetch(token string) (*domain.Url, error)
 }
 
-type Config struct {
-	maxInsert int
-}
-
 type Service struct {
-	config         *Config
-	idGenerator    id.Generator
+	idManager      id.Manager
 	tokenGenerator token.Generator
 	datastore      DataStore
 }
 
 func (s *Service) AddUrl(url string) (insertError error) {
-	for i := 0; i < s.config.maxInsert; i++ {
-		identifier := s.idGenerator.NewID()
+	for i := 0; i < maxGeneratedTokenConflictRetry; i++ {
+		identifier, err := s.idManager.GetNextID()
+		if err != nil {
+			return err
+		}
+
 		tk := s.tokenGenerator.GetToken(identifier)
 
 		insertError = s.datastore.Save(&domain.Url{
@@ -33,7 +34,7 @@ func (s *Service) AddUrl(url string) (insertError error) {
 			Token:   tk,
 		})
 
-		// TODO: retry on duplicate token error
+		// TODO: retry on duplicate token error only
 		if insertError == nil {
 			return
 		}

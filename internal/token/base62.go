@@ -7,7 +7,7 @@ import (
 )
 
 type Generator interface {
-	GetToken(id uint64) string
+	GetToken(id uint) string
 }
 
 type base64TokenGenerator struct {
@@ -15,7 +15,7 @@ type base64TokenGenerator struct {
 
 // GetToken divides the input integer ID into segments, each with a maximum length of 10, as per the Max base62 token length.
 // in response; returns the result as a concatenated string of generated tokens for each segment.
-func (tg *base64TokenGenerator) GetToken(id uint64) string {
+func (tg *base64TokenGenerator) GetToken(id uint) string {
 	strID := strconv.Itoa(int(id))
 	var result strings.Builder
 
