@@ -17,8 +17,8 @@ type Config struct {
 }
 
 type Service struct {
-	config      *Config
-	idGenerator id.Generator
+	config         *Config
+	idGenerator    id.Generator
 	tokenGenerator token.Generator
 	datastore      DataStore
 }
