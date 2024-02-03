@@ -6,29 +6,31 @@ import (
 	"github.com/majidgolshadi/url-shortner/internal/token"
 )
 
-type SaveDataStore interface {
+type DataStore interface {
 	Save(url *domain.Url) error
+	Delete(token string) error
+	Fetch(token string) (*domain.Url, error)
 }
 
-type SaveConfig struct {
+type Config struct {
 	maxInsert int
 }
 
 type Service struct {
-	saveConfig     *SaveConfig
-	idGenerator    id.Generator
+	config      *Config
+	idGenerator id.Generator
 	tokenGenerator token.Generator
-	datastore      SaveDataStore
+	datastore      DataStore
 }
 
 func (s *Service) AddUrl(url string) (insertError error) {
-	for i := 0; i < s.saveConfig.maxInsert; i++ {
-		id := s.idGenerator.NewID()
-		token := s.tokenGenerator.GetToken(id)
+	for i := 0; i < s.config.maxInsert; i++ {
+		identifier := s.idGenerator.NewID()
+		tk := s.tokenGenerator.GetToken(identifier)
 
 		insertError = s.datastore.Save(&domain.Url{
 			UrlPath: url,
-			Token:   token,
+			Token:   tk,
 		})
 
 		// TODO: retry on duplicate token error
@@ -38,4 +40,12 @@ func (s *Service) AddUrl(url string) (insertError error) {
 	}
 
 	return
+}
+
+func (s *Service) Delete(token string) error {
+	return s.Delete(token)
+}
+
+func (s *Service) Fetch(token string) (*domain.Url, error) {
+	return s.datastore.Fetch(token)
 }

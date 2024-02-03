@@ -3,16 +3,16 @@ package id
 import "sync"
 
 type Generator interface {
-	GetLastID() int
-	NewID() int
+	GetLastID() uint64
+	NewID() uint64
 }
 
 type IntegerIdGenerator struct {
 	mux sync.Mutex
-	id  int
+	id  uint64
 }
 
-func (idg *IntegerIdGenerator) NewID() int {
+func (idg *IntegerIdGenerator) NewID() uint64 {
 	idg.mux.Lock()
 	defer idg.mux.Unlock()
 	idg.id++
@@ -20,7 +20,7 @@ func (idg *IntegerIdGenerator) NewID() int {
 	return idg.id
 }
 
-func (idg *IntegerIdGenerator) GetLastID() int {
+func (idg *IntegerIdGenerator) GetLastID() uint64 {
 	idg.mux.Lock()
 	defer idg.mux.Unlock()
 
