@@ -1,6 +1,7 @@
 package url
 
 import (
+	"context"
 	"github.com/majidgolshadi/url-shortner/internal/domain"
 	"github.com/majidgolshadi/url-shortner/internal/id"
 	"github.com/majidgolshadi/url-shortner/internal/token"
@@ -9,9 +10,9 @@ import (
 const maxGeneratedTokenConflictRetry = 3
 
 type DataStore interface {
-	Save(url *domain.Url) error
-	Delete(token string) error
-	Fetch(token string) (*domain.Url, error)
+	Save(ctx context.Context, url *domain.Url) error
+	Delete(ctx context.Context, token string) error
+	Fetch(ctx context.Context, token string) (*domain.Url, error)
 }
 
 type Service struct {
@@ -20,7 +21,7 @@ type Service struct {
 	datastore      DataStore
 }
 
-func (s *Service) AddUrl(url string) (insertError error) {
+func (s *Service) AddUrl(ctx context.Context, url string) (insertError error) {
 	for i := 0; i < maxGeneratedTokenConflictRetry; i++ {
 		identifier, err := s.idManager.GetNextID()
 		if err != nil {
@@ -29,7 +30,7 @@ func (s *Service) AddUrl(url string) (insertError error) {
 
 		tk := s.tokenGenerator.GetToken(identifier)
 
-		insertError = s.datastore.Save(&domain.Url{
+		insertError = s.datastore.Save(ctx, &domain.Url{
 			UrlPath: url,
 			Token:   tk,
 		})
@@ -43,10 +44,10 @@ func (s *Service) AddUrl(url string) (insertError error) {
 	return
 }
 
-func (s *Service) Delete(token string) error {
-	return s.Delete(token)
+func (s *Service) Delete(ctx context.Context, token string) error {
+	return s.Delete(ctx, token)
 }
 
-func (s *Service) Fetch(token string) (*domain.Url, error) {
-	return s.datastore.Fetch(token)
+func (s *Service) Fetch(ctx context.Context, token string) (*domain.Url, error) {
+	return s.datastore.Fetch(ctx, token)
 }

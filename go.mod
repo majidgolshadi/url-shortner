@@ -3,6 +3,7 @@ module github.com/majidgolshadi/url-shortner
 go 1.20
 
 require (
+	github.com/jmoiron/sqlx v1.3.5
 	github.com/marksalpeter/token/v2 v2.0.0
 	github.com/stretchr/testify v1.8.4
 )
