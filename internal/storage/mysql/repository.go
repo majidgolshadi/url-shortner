@@ -29,13 +29,13 @@ func (r *repository) Save(ctx context.Context, url *domain.Url) error {
 }
 
 func (r *repository) Delete(ctx context.Context, token string) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM url_token WHERE token=?`, token)
+	_, err := r.db.ExecContext(ctx, `DELETE FROM url_token WHERE token=?;`, token)
 	return err
 }
 
 func (r *repository) Fetch(ctx context.Context, token string) (*domain.Url, error) {
 	row := sqlRow{}
-	err := r.db.GetContext(ctx, &row, `SELECT token, url FROM url_token WHERE token = ?`, token)
+	err := r.db.GetContext(ctx, &row, `SELECT token, url FROM url_token WHERE token = ?;`, token)
 	if err != nil {
 		return nil, err
 	}
