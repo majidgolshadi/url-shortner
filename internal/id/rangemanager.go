@@ -1,10 +1,13 @@
 package id
 
+import "context"
+
 type Range struct {
-	Min uint
-	Max uint
+	Start uint
+	End   uint
 }
+
 type RangeManager interface {
-	getCurrentRange() (Range, error)
-	getNextIDRange() (Range, error)
+	getCurrentRange(ctx context.Context) (Range, error)
+	getNextIDRange(ctx context.Context) (Range, error)
 }

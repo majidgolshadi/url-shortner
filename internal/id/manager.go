@@ -1,6 +1,9 @@
 package id
 
-import "sync"
+import (
+	"context"
+	"sync"
+)
 
 type Manager struct {
 	rangeManager RangeManager
@@ -10,8 +13,8 @@ type Manager struct {
 	mux           sync.Mutex
 }
 
-func NewManager(rangeMng RangeManager) (*Manager, error) {
-	rng, err := rangeMng.getCurrentRange()
+func NewManager(ctx context.Context, rangeMng RangeManager) (*Manager, error) {
+	rng, err := rangeMng.getCurrentRange(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -19,7 +22,7 @@ func NewManager(rangeMng RangeManager) (*Manager, error) {
 	return &Manager{
 		rangeManager: rangeMng,
 
-		lastID:        rng.Min,
+		lastID:        rng.Start,
 		reservedRange: rng,
 	}, nil
 }
@@ -34,18 +37,18 @@ func (m *Manager) GetLastID() uint {
 
 // GetNextID retrieves the subsequent integer ID.
 // In case the reserved range is entirely consumed, it prompts the range manager to reserve a new range, which is then put into use.
-func (m *Manager) GetNextID() (id uint, err error) {
+func (m *Manager) GetNextID(ctx context.Context) (id uint, err error) {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 
 	m.lastID++
-	if m.lastID > m.reservedRange.Max {
-		m.reservedRange, err = m.rangeManager.getNextIDRange()
+	if m.lastID > m.reservedRange.End {
+		m.reservedRange, err = m.rangeManager.getNextIDRange(ctx)
 		if err != nil {
 			return 0, err
 		}
 
-		m.lastID = m.reservedRange.Min
+		m.lastID = m.reservedRange.Start
 	}
 
 	return m.lastID, nil

@@ -1,5 +1,7 @@
 package id
 
+import "context"
+
 type inMemory struct {
 	startID uint
 }
@@ -10,16 +12,16 @@ func NewInMemoryRangeManager(startID uint) RangeManager {
 	}
 }
 
-func (c *inMemory) getCurrentRange() (Range, error) {
+func (c *inMemory) getCurrentRange(ctx context.Context) (Range, error) {
 	return Range{
-		Min: c.startID,
-		Max: ^uint(0),
+		Start: c.startID,
+		End:   ^uint(0),
 	}, nil
 }
 
-func (c *inMemory) getNextIDRange() (Range, error) {
+func (c *inMemory) getNextIDRange(ctx context.Context) (Range, error) {
 	return Range{
-		Min: c.startID,
-		Max: ^uint(0),
+		Start: c.startID,
+		End:   ^uint(0),
 	}, nil
 }

@@ -23,7 +23,7 @@ type Service struct {
 
 func (s *Service) AddUrl(ctx context.Context, url string) (insertError error) {
 	for i := 0; i < maxGeneratedTokenConflictRetry; i++ {
-		identifier, err := s.idManager.GetNextID()
+		identifier, err := s.idManager.GetNextID(ctx)
 		if err != nil {
 			return err
 		}
