@@ -2,10 +2,19 @@ package id
 
 import (
 	"context"
+	"github.com/pkg/errors"
 	"sync"
+	"time"
 
 	"github.com/majidgolshadi/url-shortner/internal/domain"
+	intErr "github.com/majidgolshadi/url-shortner/internal/infrastructure/errors"
 	"github.com/majidgolshadi/url-shortner/internal/storage"
+)
+
+const (
+	reserveRangeMaxRetry = 3
+
+	reserveRangeWaitingTimeMillisecond = 200
 )
 
 type datastoreRangeManager struct {
@@ -47,14 +56,19 @@ func (c *datastoreRangeManager) getCurrentRange(ctx context.Context) (Range, err
 	}, nil
 }
 
-func (c *datastoreRangeManager) getNextIDRange(ctx context.Context) (Range, error) {
+func (c *datastoreRangeManager) getNextIDRange(ctx context.Context) (rng Range, err error) {
+	var takenRange *domain.Range
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
-	takenRange, err := c.coordinator.TakeNextFreeRange(ctx, c.nodeID, c.rangeSize)
-	// TODO: retry multiple times to take a range
-	if err != nil {
-		return Range{}, err
+	for i := 0; i < reserveRangeMaxRetry; i++ {
+		takenRange, err = c.coordinator.TakeNextFreeRange(ctx, c.nodeID, c.rangeSize)
+		if !errors.Is(err, intErr.CoordinatorTakeNextFreeRangeErr) {
+			return Range{}, err
+		}
+
+		// TODO: log the error as warning
+		time.Sleep(reserveRangeWaitingTimeMillisecond * time.Millisecond)
 	}
 
 	c.reservedRange.Start = takenRange.Start

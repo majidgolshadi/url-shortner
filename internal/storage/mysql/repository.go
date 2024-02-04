@@ -8,7 +8,7 @@ import (
 )
 
 type sqlRow struct {
-	token string `db:"token"`
+	token string `db:"token"` // primary key
 	url   string `db:"url"`
 }
 type repository struct {
@@ -24,7 +24,8 @@ func NewRepository(db *sqlx.DB) storage.Repository {
 func (r *repository) Save(ctx context.Context, url *domain.Url) error {
 	sql := `INSERT INTO url_token(token, url) VALUES(?, ?);`
 	_, err := r.db.ExecContext(ctx, sql, url.Token, url.UrlPath)
-	return err
+
+	return translateMysqlError(err)
 }
 
 func (r *repository) Delete(ctx context.Context, token string) error {
