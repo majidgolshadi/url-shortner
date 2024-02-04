@@ -12,8 +12,8 @@ import (
 )
 
 type datastoreMock struct {
-	callCount int
-	errorIndex int
+	callCount     int
+	errorIndex    int
 	saveErrorList map[int]error
 }
 
@@ -34,7 +34,6 @@ func (mock *datastoreMock) Fetch(ctx context.Context, token string) (*domain.Url
 }
 
 type generatorMock struct {
-
 }
 
 func (mock *generatorMock) GetToken(id uint) string {
@@ -45,8 +44,6 @@ func getIdManager() *id.Manager {
 	mng, _ := id.NewManager(context.Background(), id.NewInMemoryRangeManager(1))
 	return mng
 }
-
-
 
 func TestAddUrlSuccessfulSave(t *testing.T) {
 	db := &datastoreMock{

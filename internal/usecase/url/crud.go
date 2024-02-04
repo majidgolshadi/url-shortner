@@ -25,9 +25,9 @@ type Service struct {
 
 func NewService(idManager *id.Manager, tokenGenerator token.Generator, datastore DataStore) *Service {
 	return &Service{
-		idManager: idManager,
+		idManager:      idManager,
 		tokenGenerator: tokenGenerator,
-		datastore: datastore,
+		datastore:      datastore,
 	}
 }
 
