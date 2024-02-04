@@ -4,7 +4,9 @@ import (
 	"context"
 	"github.com/majidgolshadi/url-shortner/internal/domain"
 	"github.com/majidgolshadi/url-shortner/internal/id"
+	intErr "github.com/majidgolshadi/url-shortner/internal/infrastructure/errors"
 	"github.com/majidgolshadi/url-shortner/internal/token"
+	"github.com/pkg/errors"
 )
 
 const maxGeneratedTokenConflictRetry = 3
@@ -16,9 +18,17 @@ type DataStore interface {
 }
 
 type Service struct {
-	idManager      id.Manager
+	idManager      *id.Manager
 	tokenGenerator token.Generator
 	datastore      DataStore
+}
+
+func NewService(idManager *id.Manager, tokenGenerator token.Generator, datastore DataStore) *Service {
+	return &Service{
+		idManager: idManager,
+		tokenGenerator: tokenGenerator,
+		datastore: datastore,
+	}
 }
 
 func (s *Service) AddUrl(ctx context.Context, url string) (insertError error) {
@@ -35,8 +45,9 @@ func (s *Service) AddUrl(ctx context.Context, url string) (insertError error) {
 			Token:   tk,
 		})
 
-		// TODO: retry on duplicate token error only
-		if insertError == nil {
+		if errors.Is(insertError, intErr.RepositoryDuplicateTokenErr) {
+			// TODO: log as warning
+		} else {
 			return
 		}
 	}
