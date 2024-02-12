@@ -2,16 +2,18 @@ package main
 
 import (
 	"context"
-	"github.com/majidgolshadi/url-shortner/internal/id"
-	"github.com/majidgolshadi/url-shortner/internal/token"
-	"github.com/majidgolshadi/url-shortner/internal/usecase/url"
 	"log"
 	"time"
 
 	"github.com/majidgolshadi/url-shortner/cmd/server/config"
+	"github.com/majidgolshadi/url-shortner/internal/id"
+	intLogger "github.com/majidgolshadi/url-shortner/internal/infrastructure/logger"
 	"github.com/majidgolshadi/url-shortner/internal/infrastructure/sql"
 	"github.com/majidgolshadi/url-shortner/internal/infrastructure/sql/mysql"
+	"github.com/majidgolshadi/url-shortner/internal/server/protocol/http"
 	mysqlRepo "github.com/majidgolshadi/url-shortner/internal/storage/mysql"
+	"github.com/majidgolshadi/url-shortner/internal/token"
+	"github.com/majidgolshadi/url-shortner/internal/usecase/url"
 )
 
 var (
@@ -56,6 +58,10 @@ func runServer() error {
 
 	repo := mysqlRepo.NewRepository(db)
 	urlSrv := url.NewService(idMng, &token.Base64TokenGenerator{}, repo)
+	logger := intLogger.NewLogger(cfg.LogLevel)
+
+	httpSrv := http.InitHttpServer(urlSrv, logger)
+	return httpSrv.RunServer(Tag, CommitHash, cfg.HTTPAddr)
 }
 
 // dbConfigBy generates dbConfig by given config.

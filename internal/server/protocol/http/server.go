@@ -13,17 +13,21 @@ import (
 	"time"
 )
 
+const shutdownTimeout = 5 * time.Second
+
 type server struct {
 	urlService UrlService
 	logger     *logrus.Entry
 }
+
 func InitHttpServer(urlService UrlService, logger *logrus.Entry) *server {
 	return &server{
+		urlService: urlService,
 		logger: logger,
 	}
 }
 
-func (s *server) RunServer(ctx context.Context, tag string, commit string, httpPort string) error {
+func (s *server) RunServer(tag string, commit string, httpPort string) error {
 	urlHandler := NewUrlHandler(s.urlService)
 
 	hcs := usecase.NewHealthCheckService()
@@ -52,7 +56,7 @@ func (s *server) RunServer(ctx context.Context, tag string, commit string, httpP
 		// sig is a ^C, handle it
 		<-c
 		s.logger.Info("shutting down HTTP/REST server...")
-		_, cancel := context.WithTimeout(ctx, 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 		defer cancel()
 		_ = srv.Shutdown(ctx)
 	}()
