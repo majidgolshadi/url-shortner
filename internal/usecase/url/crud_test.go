@@ -54,7 +54,7 @@ func TestAddUrlSuccessfulSave(t *testing.T) {
 
 	s := NewService(idMng, tokenGen, db)
 
-	err := s.AddUrl(context.Background(), "sample-url")
+	_, err := s.Add(context.Background(), "sample-url")
 	assert.Equal(t, 1, db.callCount)
 	assert.Nil(t, err)
 }
@@ -71,7 +71,7 @@ func TestAddUrlSuccessfulSaveAfterTwoRetry(t *testing.T) {
 	tokenGen := &generatorMock{}
 
 	s := NewService(idMng, tokenGen, db)
-	err := s.AddUrl(context.Background(), "sample-url")
+	_, err := s.Add(context.Background(), "sample-url")
 	assert.Equal(t, 3, db.callCount)
 	assert.Nil(t, err)
 }
@@ -88,12 +88,12 @@ func TestAddUrlFailedAfterMaxRetry(t *testing.T) {
 	tokenGen := &generatorMock{}
 
 	s := NewService(idMng, tokenGen, db)
-	err := s.AddUrl(context.Background(), "sample-url")
+	_, err := s.Add(context.Background(), "sample-url")
 	assert.Equal(t, 3, db.callCount)
 	assert.Equal(t, err, intErr.RepositoryDuplicateTokenErr)
 }
 
-func TestAddUrlFailedReciveNoneConflictError(t *testing.T) {
+func TestAddUrlFailedReceiveNoneConflictError(t *testing.T) {
 	db := &datastoreMock{
 		saveErrorList: map[int]error{
 			0: errors.New("unknown error"),
@@ -103,7 +103,7 @@ func TestAddUrlFailedReciveNoneConflictError(t *testing.T) {
 	tokenGen := &generatorMock{}
 
 	s := NewService(idMng, tokenGen, db)
-	err := s.AddUrl(context.Background(), "sample-url")
+	_, err := s.Add(context.Background(), "sample-url")
 	assert.Equal(t, 1, db.callCount)
 	assert.NotNil(t, err)
 }

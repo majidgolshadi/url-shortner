@@ -6,7 +6,7 @@ import (
 )
 
 func TestGenerateToken(t *testing.T) {
-	tokenGen := &base64TokenGenerator{}
+	tokenGen := &Base64TokenGenerator{}
 
 	tests := map[string]struct {
 		id            uint
@@ -38,7 +38,7 @@ func TestGenerateToken(t *testing.T) {
 }
 
 func TestKnownIssues(t *testing.T) {
-	tokenGen := &base64TokenGenerator{}
+	tokenGen := &Base64TokenGenerator{}
 
 	tests := map[string]struct {
 		firstID       uint

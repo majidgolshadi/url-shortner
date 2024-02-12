@@ -31,18 +31,18 @@ func NewService(idManager *id.Manager, tokenGenerator token.Generator, datastore
 	}
 }
 
-func (s *Service) AddUrl(ctx context.Context, url string) (insertError error) {
+func (s *Service) Add(ctx context.Context, url string) (token string, insertError error) {
 	for i := 0; i < maxGeneratedTokenConflictRetry; i++ {
 		identifier, err := s.idManager.GetNextID(ctx)
 		if err != nil {
-			return err
+			return "", err
 		}
 
-		tk := s.tokenGenerator.GetToken(identifier)
+		token = s.tokenGenerator.GetToken(identifier)
 
 		insertError = s.datastore.Save(ctx, &domain.Url{
 			UrlPath: url,
-			Token:   tk,
+			Token:   token,
 		})
 
 		if errors.Is(insertError, intErr.RepositoryDuplicateTokenErr) {
@@ -56,7 +56,7 @@ func (s *Service) AddUrl(ctx context.Context, url string) (insertError error) {
 }
 
 func (s *Service) Delete(ctx context.Context, token string) error {
-	return s.Delete(ctx, token)
+	return s.datastore.Delete(ctx, token)
 }
 
 func (s *Service) Fetch(ctx context.Context, token string) (*domain.Url, error) {
