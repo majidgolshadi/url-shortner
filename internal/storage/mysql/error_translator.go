@@ -7,7 +7,8 @@ import (
 )
 
 var mysqlErrCodes = map[uint16]error{
-	1062: errors.RepositoryDuplicateTokenErr,
+	45000: errors.CoordinatorDataInvalidVersionErr,
+	1062:  errors.RepositoryDuplicateTokenErr,
 }
 
 // influenced by https://github.com/go-gorm/mysql/blob/master/error_translator.go

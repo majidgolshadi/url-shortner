@@ -7,6 +7,6 @@ import (
 
 type Coordinator interface {
 	GetNodeReservedRange(ctx context.Context, nodeID string) (*domain.Range, error)
-	TakeNextFreeRange(ctx context.Context, nodeID string, rangeSize int) (*domain.Range, error)
-	UpdateRemainedRange(nodeID string, remainedRange domain.Range) error
+	GetLatestReservedRange(ctx context.Context) (lastReservedNumber uint, version int, err error)
+	TakeFreeRange(ctx context.Context, nodeID string, requestedRange domain.Range, version int) error
 }

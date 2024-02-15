@@ -1,6 +1,9 @@
 package id
 
-import "context"
+import (
+	"context"
+	"github.com/majidgolshadi/url-shortner/internal/domain"
+)
 
 type inMemory struct {
 	startID uint
@@ -12,15 +15,15 @@ func NewInMemoryRangeManager(startID uint) RangeManager {
 	}
 }
 
-func (c *inMemory) getCurrentRange(ctx context.Context) (Range, error) {
-	return Range{
+func (c *inMemory) getCurrentRange(ctx context.Context) (domain.Range, error) {
+	return domain.Range{
 		Start: c.startID,
 		End:   ^uint(0),
 	}, nil
 }
 
-func (c *inMemory) getNextIDRange(ctx context.Context) (Range, error) {
-	return Range{
+func (c *inMemory) getNextIDRange(ctx context.Context) (domain.Range, error) {
+	return domain.Range{
 		Start: c.startID,
 		End:   ^uint(0),
 	}, nil

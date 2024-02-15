@@ -23,7 +23,7 @@ type server struct {
 func InitHttpServer(urlService UrlService, logger *logrus.Entry) *server {
 	return &server{
 		urlService: urlService,
-		logger: logger,
+		logger:     logger,
 	}
 }
 

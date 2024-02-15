@@ -19,7 +19,7 @@ type (
 	}
 
 	FetchUrlResponse struct {
-		URL string `json:"url"`
+		URL   string `json:"url"`
 		Token string `json:"token"`
 	}
 
@@ -32,7 +32,7 @@ type (
 	UrlHandler struct {
 		urlService UrlService
 	}
-	 UrlService interface {
+	UrlService interface {
 		Add(ctx context.Context, url string) (token string, insertError error)
 		Delete(ctx context.Context, token string) error
 		Fetch(ctx context.Context, token string) (*domain.Url, error)
@@ -78,7 +78,7 @@ func (uh *UrlHandler) fetchUrlHandle(resp http.ResponseWriter, req *http.Request
 
 	resp.WriteHeader(http.StatusOK)
 	json.NewEncoder(resp).Encode(&FetchUrlResponse{
-		URL: urlData.UrlPath,
+		URL:   urlData.UrlPath,
 		Token: urlData.UrlPath,
 	})
 }
@@ -103,4 +103,3 @@ func (uh *UrlHandler) internalServerError(err error, resp http.ResponseWriter) {
 		Message: err.Error(),
 	})
 }
-

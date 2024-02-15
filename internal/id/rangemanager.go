@@ -1,13 +1,12 @@
 package id
 
-import "context"
+import (
+	"context"
 
-type Range struct {
-	Start uint
-	End   uint
-}
+	"github.com/majidgolshadi/url-shortner/internal/domain"
+)
 
 type RangeManager interface {
-	getCurrentRange(ctx context.Context) (Range, error)
-	getNextIDRange(ctx context.Context) (Range, error)
+	getCurrentRange(ctx context.Context) (domain.Range, error)
+	getNextIDRange(ctx context.Context) (domain.Range, error)
 }

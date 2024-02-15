@@ -3,7 +3,6 @@ package mysql
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"github.com/jmoiron/sqlx"
 	"github.com/majidgolshadi/url-shortner/internal/domain"
 	intErr "github.com/majidgolshadi/url-shortner/internal/infrastructure/errors"
@@ -20,7 +19,7 @@ type coordinator struct {
 
 type (
 	nodesCoordinationKeyRow struct {
-		Key     string `db:"key"`
+		KeyID   string `db:"key_id"`
 		Value   string `db:"value"`
 		Version int    `db:"version"`
 	}
@@ -39,7 +38,7 @@ func NewCoordinator(db *sqlx.DB) storage.Coordinator {
 
 func (c *coordinator) GetNodeReservedRange(ctx context.Context, nodeID string) (*domain.Range, error) {
 	var row nodeRangeJournalRow
-	err := c.db.GetContext(ctx, &row, "SELECT start, end FROM node_range_journal WHERE node_id=?", nodeID)
+	err := c.db.GetContext(ctx, &row, "SELECT start, end FROM node_range_journal WHERE node_id=?;", nodeID)
 	if err != nil {
 		return nil, err
 	}
@@ -50,78 +49,70 @@ func (c *coordinator) GetNodeReservedRange(ctx context.Context, nodeID string) (
 	}, nil
 }
 
-func (c *coordinator) TakeNextFreeRange(ctx context.Context, nodeID string, rangeSize int) (*domain.Range, error) {
+func (c *coordinator) GetLatestReservedRange(ctx context.Context) (lastReservedNumber uint, version int, err error) {
 	var row nodesCoordinationKeyRow
-	dataVersion := 1
-	latestReservedIDValue := uint(rangeSize)
 
-	err := c.db.GetContext(ctx, &row, "SELECT value, version FROM nodes_coodination_keys WHERE key=?", lastReservedIDKey)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, err
+	err = c.db.GetContext(ctx, &row, "SELECT value, version FROM nodes_coordination_keys WHERE key_id = ?;", lastReservedIDKey)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, 0, intErr.CoordinatorNoReservedRangeErr
 	}
 
-	// lastReservedIDKey row has been initiated
-	if err == nil {
-		lastReservedID, strConvErr := strconv.Atoi(row.Value)
-		if strConvErr != nil {
-			return nil, strConvErr
-		}
-
-		latestReservedIDValue = uint(lastReservedID + rangeSize)
-		dataVersion = row.Version + 1
+	if err != nil {
+		return 0, 0, err
 	}
 
+	end, strConvErr := strconv.Atoi(row.Value)
+	if strConvErr != nil {
+		return 0, 0, strConvErr
+	}
+
+	return uint(end), row.Version, nil
+}
+
+func (c *coordinator) TakeFreeRange(ctx context.Context, nodeID string, requestedRange domain.Range, version int) error {
+	var row nodesCoordinationKeyRow
+
+	err := c.db.GetContext(ctx, &row, "SELECT value, version FROM nodes_coordination_keys WHERE key_id = ?;", lastReservedIDKey)
+	if errors.Is(err, sql.ErrNoRows) {
+		// no need to check the initial version
+		return c.setRange(ctx, nodeID, requestedRange, version)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	latestReservedRange, strConvErr := strconv.Atoi(row.Value)
+	if strConvErr != nil {
+		return strConvErr
+	}
+
+	// ensure no gap exists between reserved ranges
+	if requestedRange.Start != uint(latestReservedRange+1) {
+		return intErr.CoordinatorRangeFragmentationErr
+	}
+
+	return c.setRange(ctx, nodeID, requestedRange, version)
+}
+
+func (c *coordinator) setRange(ctx context.Context, nodeID string, requestedRange domain.Range, version int) error {
 	tx, err := c.db.BeginTxx(ctx, nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer tx.Rollback()
 
-	query := `
-		INSERT INTO nodes_coodination_keys(key, value, version) VALUES (?,?,?)
+	query := `INSERT INTO nodes_coordination_keys(key_id, value, version) VALUES (?,?,?)
 		ON DUPLICATE KEY UPDATE value = VALUES(value), version = VALUES(version);`
-	if _, err = tx.ExecContext(ctx, query, lastReservedIDKey, latestReservedIDValue, dataVersion); err != nil {
-		return nil, err
+	if _, err = tx.ExecContext(ctx, query, lastReservedIDKey, requestedRange.End, version); err != nil {
+		return translateMysqlError(err)
 	}
 
-	startRangeID := latestReservedIDValue + 1
 	_, err = tx.ExecContext(ctx, "INSERT INTO node_range_journal(node_id, start, end) VALUES (?,?,?);",
-		nodeID, startRangeID, latestReservedIDValue)
+		nodeID, requestedRange.Start, requestedRange.End)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	err = tx.Commit()
-	if err != nil {
-		return nil, fmt.Errorf("%w error %s", intErr.CoordinatorTakeNextFreeRangeErr, err.Error())
-	}
-
-	return &domain.Range{
-		Start: startRangeID,
-		End:   latestReservedIDValue,
-	}, nil
-}
-
-func (c *coordinator) getNodesCoordinationKeyData(ctx context.Context, key string) (*nodesCoordinationKeyRow, error) {
-	var row nodesCoordinationKeyRow
-
-	err := c.db.GetContext(ctx, &row, "SELECT value, version FROM nodes_coodination_keys WHERE key=?", key)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, err
-	}
-
-	if errors.Is(err, sql.ErrNoRows) {
-		return &nodesCoordinationKeyRow{
-			Value:   "",
-			Version: 0,
-		}, nil
-	}
-
-	return &row, nil
-}
-
-func (c *coordinator) UpdateRemainedRange(nodeID string, remainedRange domain.Range) error {
-	_, err := c.db.Exec("INSERT INTO node_range_journal(node_id, start, end) VALUES (?,?,?)",
-		nodeID, remainedRange.Start, remainedRange.End)
-	return err
+	return tx.Commit()
 }

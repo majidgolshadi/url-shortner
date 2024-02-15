@@ -2,13 +2,19 @@ package errors
 
 const (
 	// CoordinatorDataInvalidVersionErr ...
-	CoordinatorDataInvalidVersionErr = errorStr("coordinator: invalid data version")
+	CoordinatorDataInvalidVersionErr = errorStr("invalid data version")
 
-	// CoordinatorTakeNextFreeRangeErr ...
-	CoordinatorTakeNextFreeRangeErr = errorStr("coordinator: take next free range error")
+	// CoordinatorNoReservedRangeErr ...
+	CoordinatorNoReservedRangeErr = errorStr("no range has been reserved")
+
+	// CoordinatorRangeFragmentationErr ...
+	CoordinatorRangeFragmentationErr = errorStr("range fragmentation error")
 
 	// RepositoryDuplicateTokenErr ...
-	RepositoryDuplicateTokenErr = errorStr("repository: duplicate token error")
+	RepositoryDuplicateTokenErr = errorStr("duplicate token error")
+
+	// RangeManagerNoReservedRangeErr ...
+	RangeManagerNoReservedRangeErr = errorStr("node hasn't reserved any range yet")
 )
 
 type errorStr string

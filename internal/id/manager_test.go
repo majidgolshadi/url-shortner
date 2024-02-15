@@ -2,21 +2,22 @@ package id
 
 import (
 	"context"
+	"github.com/majidgolshadi/url-shortner/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 type rangeManagerMock struct {
-	initRange Range
+	initRange domain.Range
 	jumpRange uint
 }
 
-func (mock *rangeManagerMock) getCurrentRange(ctx context.Context) (Range, error) {
+func (mock *rangeManagerMock) getCurrentRange(ctx context.Context) (domain.Range, error) {
 	return mock.initRange, nil
 }
 
-func (mock *rangeManagerMock) getNextIDRange(ctx context.Context) (Range, error) {
-	return Range{
+func (mock *rangeManagerMock) getNextIDRange(ctx context.Context) (domain.Range, error) {
+	return domain.Range{
 		Start: mock.initRange.Start + mock.jumpRange,
 		End:   mock.initRange.End + mock.jumpRange,
 	}, nil
@@ -25,7 +26,7 @@ func (mock *rangeManagerMock) getNextIDRange(ctx context.Context) (Range, error)
 func TestIDManagement(t *testing.T) {
 	ctx := context.Background()
 	idMng, _ := NewManager(ctx, &rangeManagerMock{
-		initRange: Range{
+		initRange: domain.Range{
 			Start: 2,
 			End:   3,
 		},
