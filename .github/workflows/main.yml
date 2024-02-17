@@ -19,7 +19,7 @@ jobs:
         if: steps.go.outputs.GOOS == 'linux'
 
       - name: Build
-        run: go build -v .
+        run: go build -v ./cmd/server
 
       - name: Test
         run: go test -v ./...
