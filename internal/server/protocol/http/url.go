@@ -60,6 +60,7 @@ func (uh *UrlHandler) addUrlHandle(resp http.ResponseWriter, req *http.Request) 
 	}
 
 	resp.WriteHeader(http.StatusOK)
+	// nolint:staticcheck
 	json.NewEncoder(resp).Encode(&AddUrlResponse{
 		Token: token,
 	})
@@ -77,6 +78,7 @@ func (uh *UrlHandler) fetchUrlHandle(resp http.ResponseWriter, req *http.Request
 	}
 
 	resp.WriteHeader(http.StatusOK)
+	// nolint:staticcheck
 	json.NewEncoder(resp).Encode(&FetchUrlResponse{
 		URL:   urlData.UrlPath,
 		Token: urlData.UrlPath,
@@ -99,6 +101,7 @@ func (uh *UrlHandler) deleteUrlHandle(resp http.ResponseWriter, req *http.Reques
 
 func (uh *UrlHandler) internalServerError(err error, resp http.ResponseWriter) {
 	resp.WriteHeader(http.StatusInternalServerError)
+	// nolint:staticcheck
 	json.NewEncoder(resp).Encode(&InternalServerError{
 		Message: err.Error(),
 	})
