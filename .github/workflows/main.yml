@@ -1,6 +1,10 @@
 name: Go
 
 on: [push]
+permissions:
+  contents: read
+  pull-requests: read
+  checks: write
 jobs:
   build:
     runs-on: ubuntu-latest
