@@ -100,7 +100,7 @@ func (c *coordinator) setRange(ctx context.Context, nodeID string, requestedRang
 	if err != nil {
 		return err
 	}
-	// nolint:staticcheck
+	// lint:ignore
 	defer tx.Rollback()
 
 	query := `INSERT INTO nodes_coordination_keys(key_id, value, version) VALUES (?,?,?)
