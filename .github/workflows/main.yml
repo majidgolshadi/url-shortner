@@ -25,7 +25,9 @@ jobs:
         run: go test -v ./...
 
       - name: Install golangci-lint
-        run: go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.39.0
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.54
 
       - name: Run golangci-lint
         run: golangci-lint run
