@@ -5,29 +5,18 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go 1.x
-        uses: actions/setup-go@v5
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: ^1.20
-        id: go
-
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v4
-
-      - name: Get dependencies
-        run: go get -v -t -d ./...
-        if: steps.go.outputs.GOOS == 'linux'
-
-      - name: Build
-        run: go build -v ./cmd/server
-
-      - name: Test
-        run: go test -v ./...
-
-      - name: Install golangci-lint
+      - name: Lint
         uses: golangci/golangci-lint-action@v3
         with:
           version: v1.54
-
-      - name: Run golangci-lint
-        run: golangci-lint run
+      - name: Get dependencies
+        run: go get -v -t -d ./...
+        if: steps.go.outputs.GOOS == 'linux'
+      - name: Build
+        run: go build -v ./cmd/server
+      - name: Test
+        run: go test -v ./...
