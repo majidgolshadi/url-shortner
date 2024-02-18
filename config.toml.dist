@@ -1,5 +1,6 @@
 environment="development"
-http_addr=":8080"
+http_addr="8080"
+service_name="url-shortener"
 log_level="info"
 enable_application_profiler=false
 

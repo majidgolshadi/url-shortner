@@ -48,7 +48,7 @@ func NewUrlHandler(urlService UrlService) *UrlHandler {
 func (uh *UrlHandler) addUrlHandle(resp http.ResponseWriter, req *http.Request) {
 	var request AddUrlRequest
 	err := json.NewDecoder(req.Body).Decode(&request)
-	if err != nil {
+	if err != nil || request.URL == "" {
 		resp.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -70,6 +70,11 @@ func (uh *UrlHandler) fetchUrlHandle(resp http.ResponseWriter, req *http.Request
 	vars := mux.Vars(req)
 	token := vars["token"]
 
+	if token == "" {
+		resp.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	// TODO: check the url owner
 	urlData, err := uh.urlService.Fetch(req.Context(), token)
 	if err != nil {
@@ -88,6 +93,11 @@ func (uh *UrlHandler) fetchUrlHandle(resp http.ResponseWriter, req *http.Request
 func (uh *UrlHandler) deleteUrlHandle(resp http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	token := vars["token"]
+
+	if token == "" {
+		resp.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
 	// TODO: check the url owner
 	err := uh.urlService.Delete(req.Context(), token)

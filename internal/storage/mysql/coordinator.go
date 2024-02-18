@@ -36,6 +36,7 @@ func NewCoordinator(db *sqlx.DB) storage.Coordinator {
 	}
 }
 
+// GetNodeReservedRange get requested node latest reserved range
 func (c *coordinator) GetNodeReservedRange(ctx context.Context, nodeID string) (*domain.Range, error) {
 	var row nodeRangeJournalRow
 	err := c.db.GetContext(ctx, &row, "SELECT start, end FROM node_range_journal WHERE node_id=?;", nodeID)
@@ -49,6 +50,7 @@ func (c *coordinator) GetNodeReservedRange(ctx context.Context, nodeID string) (
 	}, nil
 }
 
+// GetLatestReservedRange returns the  latest reserved range with its version
 func (c *coordinator) GetLatestReservedRange(ctx context.Context) (lastReservedNumber uint, version int, err error) {
 	var row nodesCoordinationKeyRow
 
@@ -69,6 +71,11 @@ func (c *coordinator) GetLatestReservedRange(ctx context.Context) (lastReservedN
 	return uint(end), row.Version, nil
 }
 
+// TakeFreeRange take requested range otherwise throw an error
+// errors:
+// CoordinatorRangeFragmentationErr in case there is a gap between requested range start point with the latest reserved end point
+// CoordinatorDataInvalidVersionErr invalid version number
+// mysql errors
 func (c *coordinator) TakeFreeRange(ctx context.Context, nodeID string, requestedRange domain.Range, version int) error {
 	var row nodesCoordinationKeyRow
 
@@ -95,6 +102,8 @@ func (c *coordinator) TakeFreeRange(ctx context.Context, nodeID string, requeste
 	return c.setRange(ctx, nodeID, requestedRange, version)
 }
 
+// setRange updates the current coordination with the latest reserved range.
+// It also journals the request for traceability and potential future debugging.
 func (c *coordinator) setRange(ctx context.Context, nodeID string, requestedRange domain.Range, version int) error {
 	tx, err := c.db.BeginTxx(ctx, nil)
 	if err != nil {
