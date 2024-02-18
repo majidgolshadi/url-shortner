@@ -1,5 +1,5 @@
 # URL Shortener
-High scalable url shortener.
+It takes long URLs and squeezes them into fewer characters to make a link easier to share.
 
 ## Feature list
 
