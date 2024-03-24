@@ -10,7 +10,7 @@ require (
 	github.com/marksalpeter/token/v2 v2.0.0
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.9.3
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	gopkg.in/go-playground/validator.v9 v9.31.0
 )
 
