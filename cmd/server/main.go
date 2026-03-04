@@ -17,9 +17,9 @@ import (
 )
 
 var (
-	// CommitHash will be set at compile time with current git commit
+	// CommitHash will be set at compile time with current git commit.
 	CommitHash string
-	// Tag will be set at compile time with current branch or tag
+	// Tag will be set at compile time with current branch or tag.
 	Tag string
 )
 
@@ -35,48 +35,47 @@ func runServer() error {
 		return err
 	}
 
-	coordinationDbFactory := sql.NewDBFactory(getSqlFactoryConfig(cfg.ServiceName, cfg.Coordination.DataStore))
-	coordinationDb, err := coordinationDbFactory.CreateDB()
+	coordinationDB, err := sql.NewDBFactory(newDBConfig(cfg.ServiceName, cfg.Coordination.DataStore)).CreateDB()
 	if err != nil {
 		return err
 	}
 
-	coordinationStorage := mysqlRepo.NewCoordinator(coordinationDb)
+	coordinationStorage := mysqlRepo.NewCoordinator(coordinationDB)
 	rangeMng := id.NewDataStoreRangeManager(cfg.Coordination.NodeID, cfg.Coordination.RangeSize, coordinationStorage)
-	idManagementStartUpContext, cancel := context.WithTimeout(context.Background(), time.Second*3)
+
+	startupCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	idMng, err := id.NewManager(idManagementStartUpContext, rangeMng)
+
+	idMng, err := id.NewManager(startupCtx, rangeMng)
 	if err != nil {
 		return err
 	}
 
-	dbFactory := sql.NewDBFactory(getSqlFactoryConfig(cfg.ServiceName, cfg.AppDB))
-	db, err := dbFactory.CreateDB()
+	appDB, err := sql.NewDBFactory(newDBConfig(cfg.ServiceName, cfg.AppDB)).CreateDB()
 	if err != nil {
 		return err
 	}
 
-	repo := mysqlRepo.NewRepository(db)
-	urlSrv := url.NewService(idMng, &token.Base64TokenGenerator{}, repo)
+	repo := mysqlRepo.NewRepository(appDB)
+	urlSrv := url.NewService(idMng, &token.Base62TokenGenerator{}, repo)
 	logger := intLogger.NewLogger(cfg.LogLevel)
 
-	httpSrv := http.InitHttpServer(urlSrv, logger)
-	return httpSrv.RunServer(Tag, CommitHash, cfg.HTTPAddr)
+	httpSrv := http.NewHTTPServer(urlSrv, logger)
+	return httpSrv.Run(Tag, CommitHash, cfg.HTTPAddr)
 }
 
-// dbConfigBy generates dbConfig by given config.
-func getSqlFactoryConfig(serviceName string, config config.MySqlDB) *sql.DBConfig {
+func newDBConfig(serviceName string, dbCfg config.MySqlDB) *sql.DBConfig {
 	return &sql.DBConfig{
-		DSN: mysql.CreateDns(
-			config.Credential.Host,
-			config.Credential.DBName,
-			config.Credential.Username,
-			config.Credential.Password,
-			config.ReadTimeoutSec,
-			config.WriteTimeoutSec,
+		DSN: mysql.CreateDSN(
+			dbCfg.Credential.Host,
+			dbCfg.Credential.DBName,
+			dbCfg.Credential.Username,
+			dbCfg.Credential.Password,
+			dbCfg.ReadTimeoutSec,
+			dbCfg.WriteTimeoutSec,
 		),
-		ConnMaxLifetime: time.Duration(config.ConnLifetimeSec) * time.Second,
-		MaxOpenConns:    config.MaxOpenConn,
+		ConnMaxLifetime: time.Duration(dbCfg.ConnLifetimeSec) * time.Second,
+		MaxOpenConns:    dbCfg.MaxOpenConn,
 		ServiceName:     serviceName + "-mysql",
 	}
 }

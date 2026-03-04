@@ -2,14 +2,15 @@ package mysql
 
 import (
 	"context"
+
 	"github.com/jmoiron/sqlx"
 	"github.com/majidgolshadi/url-shortner/internal/domain"
 	"github.com/majidgolshadi/url-shortner/internal/storage"
 )
 
 type sqlRow struct {
-	token string `db:"token"` // primary key
-	url   string `db:"url"`
+	Token string `db:"token"` // primary key
+	URL   string `db:"url"`
 }
 type repository struct {
 	db *sqlx.DB
@@ -21,9 +22,9 @@ func NewRepository(db *sqlx.DB) storage.Repository {
 	}
 }
 
-func (r *repository) Save(ctx context.Context, url *domain.Url) error {
+func (r *repository) Save(ctx context.Context, url *domain.URL) error {
 	sql := `INSERT INTO url_token(token, url) VALUES(?, ?);`
-	_, err := r.db.ExecContext(ctx, sql, url.Token, url.UrlPath)
+	_, err := r.db.ExecContext(ctx, sql, url.Token, url.Path)
 
 	return translateMysqlError(err)
 }
@@ -33,16 +34,16 @@ func (r *repository) Delete(ctx context.Context, token string) error {
 	return err
 }
 
-func (r *repository) Fetch(ctx context.Context, token string) (*domain.Url, error) {
+func (r *repository) Fetch(ctx context.Context, token string) (*domain.URL, error) {
 	row := sqlRow{}
 	err := r.db.GetContext(ctx, &row, `SELECT token, url FROM url_token WHERE token = ?;`, token)
 	if err != nil {
 		return nil, err
 	}
 
-	return &domain.Url{
-		UrlPath: row.url,
-		Token:   row.token,
+	return &domain.URL{
+		Path:  row.URL,
+		Token: row.Token,
 	}, nil
 }
 

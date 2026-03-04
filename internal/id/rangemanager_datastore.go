@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -36,12 +37,12 @@ func NewDataStoreRangeManager(nodeID string, rangeSize int, coordinator storage.
 }
 
 func (c *datastoreRangeManager) getCurrentRange(ctx context.Context) (domain.Range, error) {
+	c.mux.Lock()
+	defer c.mux.Unlock()
+
 	if c.reservedRange.Start != c.reservedRange.End {
 		return c.reservedRange, nil
 	}
-
-	c.mux.Lock()
-	defer c.mux.Unlock()
 
 	rng, err := c.coordinator.GetNodeReservedRange(ctx, c.nodeID)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -62,16 +63,17 @@ func (c *datastoreRangeManager) getNextIDRange(ctx context.Context) (domain.Rang
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
+	var lastErr error
 	for i := 0; i < reserveRangeMaxRetry; i++ {
-		err := c.takeRange(ctx)
+		lastErr = c.takeRange(ctx)
 
 		// range has been taken successfully
-		if err == nil {
-			break
+		if lastErr == nil {
+			return c.reservedRange, nil
 		}
 
-		if !errors.Is(err, intErr.CoordinatorDataInvalidVersionErr) {
-			return domain.Range{}, err
+		if !errors.Is(lastErr, intErr.CoordinatorDataInvalidVersionErr) {
+			return domain.Range{}, lastErr
 		}
 
 		// TODO: log the error as warning
@@ -80,7 +82,7 @@ func (c *datastoreRangeManager) getNextIDRange(ctx context.Context) (domain.Rang
 		time.Sleep(reserveRangeWaitingTimeMillisecond * time.Millisecond)
 	}
 
-	return c.reservedRange, nil
+	return domain.Range{}, fmt.Errorf("failed to reserve range after %d retries: %w", reserveRangeMaxRetry, lastErr)
 }
 
 func (c *datastoreRangeManager) takeRange(ctx context.Context) error {

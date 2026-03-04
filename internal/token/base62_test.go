@@ -1,12 +1,13 @@
 package token
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGenerateToken(t *testing.T) {
-	tokenGen := &Base64TokenGenerator{}
+	tokenGen := &Base62TokenGenerator{}
 
 	tests := map[string]struct {
 		id            uint
@@ -38,7 +39,7 @@ func TestGenerateToken(t *testing.T) {
 }
 
 func TestKnownIssues(t *testing.T) {
-	tokenGen := &Base64TokenGenerator{}
+	tokenGen := &Base62TokenGenerator{}
 
 	tests := map[string]struct {
 		firstID       uint

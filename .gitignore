@@ -1,1 +1,46 @@
-cmd/server/*.toml
+# Binaries
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Build output
+server
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.html
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Dependency directories
+vendor/
+
+# Environment and config files (may contain secrets)
+*.toml
+!config.toml.dist
+.env
+.env.*
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Debug binaries
+__debug_bin*
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini

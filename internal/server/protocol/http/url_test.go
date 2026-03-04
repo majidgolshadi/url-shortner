@@ -2,52 +2,50 @@ package http
 
 import (
 	"context"
-	"github.com/gorilla/mux"
-	"github.com/majidgolshadi/url-shortner/internal/domain"
-	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/gorilla/mux"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
+
+	"github.com/majidgolshadi/url-shortner/internal/domain"
 )
 
-type urlServiceMock struct {
-}
+type urlServiceMock struct{}
 
-func (mock *urlServiceMock) Add(ctx context.Context, url string) (token string, insertError error) {
+func (mock *urlServiceMock) Add(_ context.Context, url string) (string, error) {
 	if url == "http://successful-url.com" {
 		return "token", nil
 	}
-
 	return "", errors.New("dummy error")
 }
 
-func (mock *urlServiceMock) Delete(ctx context.Context, token string) error {
+func (mock *urlServiceMock) Delete(_ context.Context, token string) error {
 	if token == "successful-token" {
 		return nil
 	}
-
 	return errors.New("dummy error")
 }
 
-func (mock *urlServiceMock) Fetch(ctx context.Context, token string) (*domain.Url, error) {
+func (mock *urlServiceMock) Fetch(_ context.Context, token string) (*domain.URL, error) {
 	if token == "successful-token" {
-		return &domain.Url{
-			UrlPath: "http://successful-url.com",
-			Token:   "token",
+		return &domain.URL{
+			Path:  "http://successful-url.com",
+			Token: "token",
 		}, nil
 	}
-
 	return nil, errors.New("dummy error")
 }
 
-func getUrlHandler() *UrlHandler {
-	return NewUrlHandler(&urlServiceMock{})
+func getURLHandler() *URLHandler {
+	return NewURLHandler(&urlServiceMock{})
 }
 
 func TestAddUrlHandle(t *testing.T) {
-	urlHdl := getUrlHandler()
+	urlHdl := getURLHandler()
 
 	tests := map[string]struct {
 		requestBody            string
@@ -59,16 +57,16 @@ func TestAddUrlHandle(t *testing.T) {
 			expectedRespStatusCode: http.StatusBadRequest,
 		},
 		"empty url request": {
-			requestBody:            "{\"unknown_key\":\"value\"}",
+			requestBody:            `{"unknown_key":"value"}`,
 			expectedRespStatusCode: http.StatusBadRequest,
 		},
 		"valid request - successful": {
-			requestBody:            "{\"url\":\"http://successful-url.com\"}",
+			requestBody:            `{"url":"http://successful-url.com"}`,
 			expectedRespStatusCode: http.StatusOK,
 			expectedRespBody:       "{\"token\":\"token\"}\n",
 		},
 		"valid request - internal server error": {
-			requestBody:            "{\"url\":\"http://fail-url.com\"}",
+			requestBody:            `{"url":"http://fail-url.com"}`,
 			expectedRespStatusCode: http.StatusInternalServerError,
 			expectedRespBody:       "{\"message\":\"dummy error\"}\n",
 		},
@@ -77,7 +75,7 @@ func TestAddUrlHandle(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			resp := httptest.NewRecorder()
-			req := httptest.NewRequest(http.MethodGet, "/", strings.NewReader(test.requestBody))
+			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(test.requestBody))
 			urlHdl.addUrlHandle(resp, req)
 			assert.Equal(t, test.expectedRespStatusCode, resp.Code)
 			assert.Equal(t, test.expectedRespBody, resp.Body.String())
@@ -86,7 +84,7 @@ func TestAddUrlHandle(t *testing.T) {
 }
 
 func TestFetchUrlHandle(t *testing.T) {
-	urlHdl := getUrlHandler()
+	urlHdl := getURLHandler()
 
 	tests := map[string]struct {
 		token                  string
@@ -100,7 +98,7 @@ func TestFetchUrlHandle(t *testing.T) {
 		"valid request - successful": {
 			token:                  "successful-token",
 			expectedRespStatusCode: http.StatusOK,
-			expectedRespBody:       "{\"url\":\"http://successful-url.com\",\"token\":\"http://successful-url.com\"}\n",
+			expectedRespBody:       "{\"url\":\"http://successful-url.com\",\"token\":\"token\"}\n",
 		},
 		"valid request - internal server error": {
 			token:                  "fail-token",
@@ -112,7 +110,7 @@ func TestFetchUrlHandle(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			resp := httptest.NewRecorder()
-			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(""))
+			req := httptest.NewRequest(http.MethodGet, "/", strings.NewReader(""))
 			req = mux.SetURLVars(req, map[string]string{
 				"token": test.token,
 			})
@@ -124,7 +122,7 @@ func TestFetchUrlHandle(t *testing.T) {
 }
 
 func TestDeleteUrlHandle(t *testing.T) {
-	urlHdl := getUrlHandler()
+	urlHdl := getURLHandler()
 
 	tests := map[string]struct {
 		token                  string

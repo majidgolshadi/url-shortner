@@ -30,20 +30,20 @@ func NewHealthCheckService() *HealthCheckService {
 type HealthCheck func(context.Context) (bool, interface{})
 
 func (hc *HealthCheckService) IsHealthy() (bool, map[string]interface{}) {
-	ctx, cancle := context.WithTimeout(context.Background(), time.Second)
-	defer cancle()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
 
-	overalStatus := true
-	overalReport := make(map[string]interface{})
+	overallStatus := true
+	overallReport := make(map[string]interface{})
 
 	for name, healthcheck := range hc.extraChecks {
 		isHealthy, report := healthcheck(ctx)
-		overalReport[name] = report
+		overallReport[name] = report
 
 		if !isHealthy {
-			overalStatus = false
+			overallStatus = false
 		}
 	}
 
-	return overalStatus, overalReport
+	return overallStatus, overallReport
 }

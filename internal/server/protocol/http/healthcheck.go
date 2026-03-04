@@ -45,9 +45,13 @@ func (hc *healthCheckHandler) Handle(resp http.ResponseWriter, req *http.Request
 	overallStatus, mapServices := hc.healthCheckService.IsHealthy()
 	hostname, _ := os.Hostname()
 
-	resp.WriteHeader(http.StatusOK)
+	statusCode := http.StatusOK
+	if !overallStatus {
+		statusCode = http.StatusInternalServerError
+	}
+
 	responseBody := &HealthCheckResponse{
-		HTTPStatus: http.StatusOK,
+		HTTPStatus: statusCode,
 		Version: HealthCheckVersion{
 			Tag:    hc.tag,
 			Commit: hc.commitHash,
@@ -58,13 +62,8 @@ func (hc *healthCheckHandler) Handle(resp http.ResponseWriter, req *http.Request
 		Services: mapServices,
 	}
 
-	if !overallStatus {
-		resp.WriteHeader(http.StatusInternalServerError)
-		responseBody.HTTPStatus = http.StatusInternalServerError
-	}
-
-	encodeErr := json.NewEncoder(resp).Encode(responseBody)
-	if encodeErr != nil {
+	resp.WriteHeader(statusCode)
+	if encodeErr := json.NewEncoder(resp).Encode(responseBody); encodeErr != nil {
 		hc.logger.Errorf("healthcheck encoding response error: %v", encodeErr)
 	}
 }

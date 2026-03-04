@@ -3,107 +3,107 @@ package url
 import (
 	"context"
 	"errors"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/majidgolshadi/url-shortner/internal/domain"
 	"github.com/majidgolshadi/url-shortner/internal/id"
 	intErr "github.com/majidgolshadi/url-shortner/internal/infrastructure/errors"
 )
 
-type datastoreMock struct {
+type repositoryMock struct {
 	callCount     int
 	errorIndex    int
 	saveErrorList map[int]error
 }
 
-func (mock *datastoreMock) Save(ctx context.Context, url *domain.Url) error {
+func (mock *repositoryMock) Save(_ context.Context, _ *domain.URL) error {
 	mock.callCount++
 	err := mock.saveErrorList[mock.errorIndex]
 	mock.errorIndex++
-
 	return err
 }
 
-func (mock *datastoreMock) Delete(ctx context.Context, token string) error {
+func (mock *repositoryMock) Delete(_ context.Context, _ string) error {
 	return nil
 }
 
-func (mock *datastoreMock) Fetch(ctx context.Context, token string) (*domain.Url, error) {
+func (mock *repositoryMock) Fetch(_ context.Context, _ string) (*domain.URL, error) {
 	return nil, nil
 }
 
-type generatorMock struct {
-}
+type generatorMock struct{}
 
-func (mock *generatorMock) GetToken(id uint) string {
+func (mock *generatorMock) GetToken(_ uint) string {
 	return "token"
 }
 
-func getIdManager() *id.Manager {
+func newTestIDManager() *id.Manager {
 	mng, _ := id.NewManager(context.Background(), id.NewInMemoryRangeManager(1))
 	return mng
 }
 
-func TestAddUrlSuccessfulSave(t *testing.T) {
-	db := &datastoreMock{
+func TestAddURLSuccessfulSave(t *testing.T) {
+	repo := &repositoryMock{
 		saveErrorList: map[int]error{},
 	}
-	idMng := getIdManager()
+	idMng := newTestIDManager()
 	tokenGen := &generatorMock{}
 
-	s := NewService(idMng, tokenGen, db)
+	s := NewService(idMng, tokenGen, repo)
 
 	_, err := s.Add(context.Background(), "sample-url")
-	assert.Equal(t, 1, db.callCount)
-	assert.Nil(t, err)
+	assert.Equal(t, 1, repo.callCount)
+	assert.NoError(t, err)
 }
 
-func TestAddUrlSuccessfulSaveAfterTwoRetry(t *testing.T) {
-	db := &datastoreMock{
+func TestAddURLSuccessfulSaveAfterTwoRetry(t *testing.T) {
+	repo := &repositoryMock{
 		saveErrorList: map[int]error{
 			0: intErr.RepositoryDuplicateTokenErr,
 			1: intErr.RepositoryDuplicateTokenErr,
 			2: nil,
 		},
 	}
-	idMng := getIdManager()
+	idMng := newTestIDManager()
 	tokenGen := &generatorMock{}
 
-	s := NewService(idMng, tokenGen, db)
+	s := NewService(idMng, tokenGen, repo)
 	_, err := s.Add(context.Background(), "sample-url")
-	assert.Equal(t, 3, db.callCount)
-	assert.Nil(t, err)
+	assert.Equal(t, 3, repo.callCount)
+	assert.NoError(t, err)
 }
 
-func TestAddUrlFailedAfterMaxRetry(t *testing.T) {
-	db := &datastoreMock{
+func TestAddURLFailedAfterMaxRetry(t *testing.T) {
+	repo := &repositoryMock{
 		saveErrorList: map[int]error{
 			0: intErr.RepositoryDuplicateTokenErr,
 			1: intErr.RepositoryDuplicateTokenErr,
 			2: intErr.RepositoryDuplicateTokenErr,
 		},
 	}
-	idMng := getIdManager()
+	idMng := newTestIDManager()
 	tokenGen := &generatorMock{}
 
-	s := NewService(idMng, tokenGen, db)
+	s := NewService(idMng, tokenGen, repo)
 	_, err := s.Add(context.Background(), "sample-url")
-	assert.Equal(t, 3, db.callCount)
-	assert.Equal(t, err, intErr.RepositoryDuplicateTokenErr)
+	assert.Equal(t, 3, repo.callCount)
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, intErr.RepositoryDuplicateTokenErr)
 }
 
-func TestAddUrlFailedReceiveNoneConflictError(t *testing.T) {
-	db := &datastoreMock{
+func TestAddURLFailedReceiveNonConflictError(t *testing.T) {
+	repo := &repositoryMock{
 		saveErrorList: map[int]error{
 			0: errors.New("unknown error"),
 		},
 	}
-	idMng := getIdManager()
+	idMng := newTestIDManager()
 	tokenGen := &generatorMock{}
 
-	s := NewService(idMng, tokenGen, db)
+	s := NewService(idMng, tokenGen, repo)
 	_, err := s.Add(context.Background(), "sample-url")
-	assert.Equal(t, 1, db.callCount)
-	assert.NotNil(t, err)
+	assert.Equal(t, 1, repo.callCount)
+	assert.Error(t, err)
 }

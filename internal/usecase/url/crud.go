@@ -2,63 +2,73 @@ package url
 
 import (
 	"context"
+	"fmt"
+
 	"github.com/majidgolshadi/url-shortner/internal/domain"
-	"github.com/majidgolshadi/url-shortner/internal/id"
 	intErr "github.com/majidgolshadi/url-shortner/internal/infrastructure/errors"
+	"github.com/majidgolshadi/url-shortner/internal/storage"
 	"github.com/majidgolshadi/url-shortner/internal/token"
 	"github.com/pkg/errors"
 )
 
 const maxGeneratedTokenConflictRetry = 3
 
-type DataStore interface {
-	Save(ctx context.Context, url *domain.Url) error
-	Delete(ctx context.Context, token string) error
-	Fetch(ctx context.Context, token string) (*domain.Url, error)
+// IDProvider abstracts ID generation for testability.
+type IDProvider interface {
+	GetNextID(ctx context.Context) (uint, error)
 }
 
+// Service handles URL shortening business logic.
 type Service struct {
-	idManager      *id.Manager
+	idProvider     IDProvider
 	tokenGenerator token.Generator
-	datastore      DataStore
+	repository     storage.Repository
 }
 
-func NewService(idManager *id.Manager, tokenGenerator token.Generator, datastore DataStore) *Service {
+// NewService creates a new URL service.
+func NewService(idProvider IDProvider, tokenGenerator token.Generator, repository storage.Repository) *Service {
 	return &Service{
-		idManager:      idManager,
+		idProvider:     idProvider,
 		tokenGenerator: tokenGenerator,
-		datastore:      datastore,
+		repository:     repository,
 	}
 }
 
-func (s *Service) Add(ctx context.Context, url string) (token string, insertError error) {
+// Add creates a shortened URL. It retries on token conflicts up to maxGeneratedTokenConflictRetry times.
+func (s *Service) Add(ctx context.Context, url string) (string, error) {
+	var lastErr error
 	for i := 0; i < maxGeneratedTokenConflictRetry; i++ {
-		identifier, err := s.idManager.GetNextID(ctx)
+		identifier, err := s.idProvider.GetNextID(ctx)
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("generating next ID: %w", err)
 		}
 
-		token = s.tokenGenerator.GetToken(identifier)
+		tok := s.tokenGenerator.GetToken(identifier)
 
-		insertError = s.datastore.Save(ctx, &domain.Url{
-			UrlPath: url,
-			Token:   token,
+		lastErr = s.repository.Save(ctx, &domain.URL{
+			Path:  url,
+			Token: tok,
 		})
 
-		if errors.Is(insertError, intErr.RepositoryDuplicateTokenErr) {
-			// TODO: log as warning
-		} else {
-			return
+		if lastErr == nil {
+			return tok, nil
 		}
+
+		if !errors.Is(lastErr, intErr.RepositoryDuplicateTokenErr) {
+			return "", lastErr
+		}
+		// duplicate token — retry with a new ID
 	}
 
-	return
+	return "", fmt.Errorf("failed to add URL after %d retries: %w", maxGeneratedTokenConflictRetry, lastErr)
 }
 
+// Delete removes a shortened URL by token.
 func (s *Service) Delete(ctx context.Context, token string) error {
-	return s.datastore.Delete(ctx, token)
+	return s.repository.Delete(ctx, token)
 }
 
-func (s *Service) Fetch(ctx context.Context, token string) (*domain.Url, error) {
-	return s.datastore.Fetch(ctx, token)
+// Fetch retrieves a shortened URL by token.
+func (s *Service) Fetch(ctx context.Context, token string) (*domain.URL, error) {
+	return s.repository.Fetch(ctx, token)
 }

@@ -3,8 +3,9 @@ package http
 import (
 	"context"
 	"encoding/json"
-	"github.com/gorilla/mux"
 	"net/http"
+
+	"github.com/gorilla/mux"
 
 	"github.com/majidgolshadi/url-shortner/internal/domain"
 )
@@ -29,23 +30,23 @@ type (
 )
 
 type (
-	UrlHandler struct {
-		urlService UrlService
+	URLHandler struct {
+		urlService URLService
 	}
-	UrlService interface {
+	URLService interface {
 		Add(ctx context.Context, url string) (token string, insertError error)
 		Delete(ctx context.Context, token string) error
-		Fetch(ctx context.Context, token string) (*domain.Url, error)
+		Fetch(ctx context.Context, token string) (*domain.URL, error)
 	}
 )
 
-func NewUrlHandler(urlService UrlService) *UrlHandler {
-	return &UrlHandler{
+func NewURLHandler(urlService URLService) *URLHandler {
+	return &URLHandler{
 		urlService: urlService,
 	}
 }
 
-func (uh *UrlHandler) addUrlHandle(resp http.ResponseWriter, req *http.Request) {
+func (uh *URLHandler) addUrlHandle(resp http.ResponseWriter, req *http.Request) {
 	var request AddUrlRequest
 	err := json.NewDecoder(req.Body).Decode(&request)
 	if err != nil || request.URL == "" {
@@ -66,7 +67,7 @@ func (uh *UrlHandler) addUrlHandle(resp http.ResponseWriter, req *http.Request) 
 	})
 }
 
-func (uh *UrlHandler) fetchUrlHandle(resp http.ResponseWriter, req *http.Request) {
+func (uh *URLHandler) fetchUrlHandle(resp http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	token := vars["token"]
 
@@ -85,12 +86,12 @@ func (uh *UrlHandler) fetchUrlHandle(resp http.ResponseWriter, req *http.Request
 	resp.WriteHeader(http.StatusOK)
 	// nolint:errcheck
 	json.NewEncoder(resp).Encode(&FetchUrlResponse{
-		URL:   urlData.UrlPath,
-		Token: urlData.UrlPath,
+		URL:   urlData.Path,
+		Token: urlData.Token,
 	})
 }
 
-func (uh *UrlHandler) deleteUrlHandle(resp http.ResponseWriter, req *http.Request) {
+func (uh *URLHandler) deleteUrlHandle(resp http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	token := vars["token"]
 
@@ -109,7 +110,7 @@ func (uh *UrlHandler) deleteUrlHandle(resp http.ResponseWriter, req *http.Reques
 	resp.WriteHeader(http.StatusAccepted)
 }
 
-func (uh *UrlHandler) internalServerError(err error, resp http.ResponseWriter) {
+func (uh *URLHandler) internalServerError(err error, resp http.ResponseWriter) {
 	resp.WriteHeader(http.StatusInternalServerError)
 	// nolint:errcheck
 	json.NewEncoder(resp).Encode(&InternalServerError{
