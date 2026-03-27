@@ -142,7 +142,7 @@ func TestFetchOgHTML_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`<!DOCTYPE html>
+		_, _ = w.Write([]byte(`<!DOCTYPE html>
 <html>
 <head>
 <meta property="og:title" content="Server Title" />
@@ -181,7 +181,7 @@ func TestFetchOgHTML_NoOgTags(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`<!DOCTYPE html><html><head></head><body>No OG</body></html>`))
+		_, _ = w.Write([]byte(`<!DOCTYPE html><html><head></head><body>No OG</body></html>`))
 	}))
 	defer server.Close()
 
