@@ -12,7 +12,7 @@ It takes long URLs and squeezes them into fewer characters to make a link easier
 - [X] Administration REST APIs
 - [X] Logging & HealthCheck
 - [X] Set custom headers in redirection
-- [ ] Fetch page title
+- [X] Fetch the original page Open Graph(OG)
 - [ ] Collect statistics
 - [ ] Register an customer
 - [ ] Specific customer counter range

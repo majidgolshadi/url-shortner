@@ -11,6 +11,7 @@ import (
 	"github.com/majidgolshadi/url-shortner/internal/infrastructure/sql"
 	"github.com/majidgolshadi/url-shortner/internal/infrastructure/sql/mysql"
 	"github.com/majidgolshadi/url-shortner/internal/infrastructure/telemetry"
+	"github.com/majidgolshadi/url-shortner/internal/opengraph"
 	"github.com/majidgolshadi/url-shortner/internal/server/protocol/http"
 	mysqlRepo "github.com/majidgolshadi/url-shortner/internal/storage/mysql"
 	"github.com/majidgolshadi/url-shortner/internal/token"
@@ -86,7 +87,14 @@ func runServer() error {
 	}
 
 	repo := mysqlRepo.NewRepository(appDB, logger.WithField("component", "repository"))
-	urlSrv := url.NewService(idMng, &token.Base62TokenGenerator{}, repo, logger.WithField("component", "url_service"))
+
+	ogFetchTimeout := cfg.OpenGraph.FetchTimeoutSec
+	if ogFetchTimeout <= 0 {
+		ogFetchTimeout = 10
+	}
+	ogFetcher := opengraph.NewFetcher(ogFetchTimeout)
+
+	urlSrv := url.NewService(idMng, &token.Base62TokenGenerator{}, repo, ogFetcher, logger.WithField("component", "url_service"))
 
 	httpSrv := http.NewHTTPServer(urlSrv, logger, cfg.ServiceName)
 	return httpSrv.Run(Tag, CommitHash, cfg.HTTPAddr)

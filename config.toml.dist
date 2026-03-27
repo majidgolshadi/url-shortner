@@ -40,3 +40,7 @@ enabled=true
 exporter_type="stdout"
 # OTLP collector endpoint (only used when exporter_type="otlp")
 otlp_endpoint="localhost:4318"
+
+[opengraph]
+# HTTP timeout in seconds when fetching Open Graph metadata from original URLs
+fetch_timeout_sec=10

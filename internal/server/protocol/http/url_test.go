@@ -39,9 +39,23 @@ func (mock *urlServiceMock) Fetch(_ context.Context, token string) (*domain.URL,
 			Headers: map[string]string{
 				"X-Custom-Header": "custom-value",
 			},
+			OgHTML: `<meta property="og:title" content="Test Title" />`,
+		}, nil
+	}
+	if token == "no-og-token" {
+		return &domain.URL{
+			Path:  "http://no-og-url.com",
+			Token: "no-og-token",
 		}, nil
 	}
 	return nil, errors.New("dummy error")
+}
+
+func (mock *urlServiceMock) RefreshOG(_ context.Context, token string) error {
+	if token == "successful-token" {
+		return nil
+	}
+	return errors.New("dummy error")
 }
 
 func getURLHandler() *URLHandler {
@@ -167,6 +181,98 @@ func TestRedirectHandle(t *testing.T) {
 			assert.Equal(t, test.expectedRespStatusCode, resp.Code)
 			for key, value := range test.expectedHeaders {
 				assert.Equal(t, value, resp.Header().Get(key))
+			}
+		})
+	}
+}
+
+func TestRedirectHandle_BotWithOgData(t *testing.T) {
+	urlHdl := getURLHandler()
+
+	resp := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", strings.NewReader(""))
+	req.Header.Set("User-Agent", "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)")
+	req = mux.SetURLVars(req, map[string]string{
+		"token": "successful-token",
+	})
+
+	urlHdl.redirectHandle(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+	assert.Equal(t, "text/html; charset=utf-8", resp.Header().Get("Content-Type"))
+	assert.Contains(t, resp.Body.String(), `<meta property="og:title" content="Test Title" />`)
+	assert.Contains(t, resp.Body.String(), `<meta http-equiv="refresh"`)
+	assert.Contains(t, resp.Body.String(), `http://successful-url.com`)
+}
+
+func TestRedirectHandle_BotWithoutOgData(t *testing.T) {
+	urlHdl := getURLHandler()
+
+	resp := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", strings.NewReader(""))
+	req.Header.Set("User-Agent", "Twitterbot/1.0")
+	req = mux.SetURLVars(req, map[string]string{
+		"token": "no-og-token",
+	})
+
+	urlHdl.redirectHandle(resp, req)
+
+	// Should fall back to regular redirect when no OG data
+	assert.Equal(t, http.StatusFound, resp.Code)
+	assert.Equal(t, "http://no-og-url.com", resp.Header().Get("Location"))
+}
+
+func TestRedirectHandle_RegularUserWithOgData(t *testing.T) {
+	urlHdl := getURLHandler()
+
+	resp := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", strings.NewReader(""))
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0")
+	req = mux.SetURLVars(req, map[string]string{
+		"token": "successful-token",
+	})
+
+	urlHdl.redirectHandle(resp, req)
+
+	// Regular users always get a redirect, even if OG data exists
+	assert.Equal(t, http.StatusFound, resp.Code)
+	assert.Equal(t, "http://successful-url.com", resp.Header().Get("Location"))
+}
+
+func TestRefreshOgHandle(t *testing.T) {
+	urlHdl := getURLHandler()
+
+	tests := map[string]struct {
+		token                  string
+		expectedRespStatusCode int
+		expectedRespBody       string
+	}{
+		"missing token": {
+			token:                  "",
+			expectedRespStatusCode: http.StatusBadRequest,
+		},
+		"successful refresh": {
+			token:                  "successful-token",
+			expectedRespStatusCode: http.StatusAccepted,
+		},
+		"refresh error": {
+			token:                  "fail-token",
+			expectedRespStatusCode: http.StatusInternalServerError,
+			expectedRespBody:       "{\"message\":\"dummy error\"}\n",
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			resp := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(""))
+			req = mux.SetURLVars(req, map[string]string{
+				"token": test.token,
+			})
+			urlHdl.refreshOgHandle(resp, req)
+			assert.Equal(t, test.expectedRespStatusCode, resp.Code)
+			if test.expectedRespBody != "" {
+				assert.Equal(t, test.expectedRespBody, resp.Body.String())
 			}
 		})
 	}

@@ -21,6 +21,11 @@ import (
 
 const maxGeneratedTokenConflictRetry = 3
 
+// OgFetcher abstracts Open Graph metadata fetching.
+type OgFetcher interface {
+	FetchOgHTML(ctx context.Context, targetURL string) string
+}
+
 // IDProvider abstracts ID generation for testability.
 type IDProvider interface {
 	GetNextID(ctx context.Context) (uint, error)
@@ -31,6 +36,7 @@ type Service struct {
 	idProvider     IDProvider
 	tokenGenerator token.Generator
 	repository     storage.Repository
+	ogFetcher      OgFetcher
 	logger         *logrus.Entry
 
 	// metrics
@@ -48,7 +54,7 @@ type Service struct {
 }
 
 // NewService creates a new URL service.
-func NewService(idProvider IDProvider, tokenGenerator token.Generator, repository storage.Repository, logger *logrus.Entry) *Service {
+func NewService(idProvider IDProvider, tokenGenerator token.Generator, repository storage.Repository, ogFetcher OgFetcher, logger *logrus.Entry) *Service {
 	meter := telemetry.Meter("url-shortener/usecase/url")
 
 	addCounter, _ := meter.Int64Counter("url.add.total",
@@ -79,6 +85,7 @@ func NewService(idProvider IDProvider, tokenGenerator token.Generator, repositor
 		idProvider:       idProvider,
 		tokenGenerator:   tokenGenerator,
 		repository:       repository,
+		ogFetcher:        ogFetcher,
 		logger:           logger,
 		addCounter:       addCounter,
 		addErrCounter:    addErrCounter,
@@ -131,6 +138,10 @@ func (s *Service) Add(ctx context.Context, url string, headers map[string]string
 			span.SetStatus(codes.Ok, "URL shortened successfully")
 			log.WithField("token", tok).Info("URL shortened successfully")
 			s.addDuration.Record(ctx, float64(time.Since(start).Milliseconds()))
+
+			// Asynchronously fetch and store Open Graph metadata
+			s.fetchAndStoreOgAsync(url, tok)
+
 			return tok, nil
 		}
 
@@ -182,6 +193,67 @@ func (s *Service) Delete(ctx context.Context, token string) error {
 	log.Info("URL deleted successfully")
 	s.deleteDuration.Record(ctx, float64(time.Since(start).Milliseconds()))
 	return nil
+}
+
+// RefreshOG re-fetches Open Graph metadata from the original URL and updates the stored data.
+func (s *Service) RefreshOG(ctx context.Context, token string) error {
+	ctx, span := telemetry.Tracer("url-shortener/usecase/url").Start(ctx, "Service.RefreshOG")
+	defer span.End()
+
+	log := intLogger.WithContext(ctx, s.logger).WithField("token", token)
+	log.Info("refreshing OG metadata")
+
+	span.SetAttributes(attribute.String("url.token", token))
+
+	urlData, err := s.repository.Fetch(ctx, token)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to fetch URL for OG refresh")
+		log.WithError(err).Error("failed to fetch URL for OG refresh")
+		return err
+	}
+
+	ogHTML := s.ogFetcher.FetchOgHTML(ctx, urlData.Path)
+
+	err = s.repository.UpdateOgHTML(ctx, token, ogHTML)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to update OG HTML")
+		log.WithError(err).Error("failed to update OG HTML")
+		return err
+	}
+
+	span.SetStatus(codes.Ok, "OG metadata refreshed successfully")
+	log.Info("OG metadata refreshed successfully")
+	return nil
+}
+
+// fetchAndStoreOgAsync fetches OG metadata in a background goroutine and stores it.
+func (s *Service) fetchAndStoreOgAsync(originalURL string, tok string) {
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		log := s.logger.WithFields(logrus.Fields{
+			"token": tok,
+			"url":   originalURL,
+		})
+
+		log.Debug("fetching OG metadata asynchronously")
+
+		ogHTML := s.ogFetcher.FetchOgHTML(ctx, originalURL)
+		if ogHTML == "" {
+			log.Debug("no OG metadata found for URL")
+			return
+		}
+
+		if err := s.repository.UpdateOgHTML(ctx, tok, ogHTML); err != nil {
+			log.WithError(err).Error("failed to store OG metadata asynchronously")
+			return
+		}
+
+		log.Debug("OG metadata stored successfully")
+	}()
 }
 
 // Fetch retrieves a shortened URL by token.

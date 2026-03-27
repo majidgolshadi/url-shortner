@@ -34,10 +34,20 @@ func (mock *repositoryMock) Fetch(_ context.Context, _ string) (*domain.URL, err
 	return nil, nil
 }
 
+func (mock *repositoryMock) UpdateOgHTML(_ context.Context, _ string, _ string) error {
+	return nil
+}
+
 type generatorMock struct{}
 
 func (mock *generatorMock) GetToken(_ uint) string {
 	return "token"
+}
+
+type ogFetcherMock struct{}
+
+func (mock *ogFetcherMock) FetchOgHTML(_ context.Context, _ string) string {
+	return `<meta property="og:title" content="Test" />`
 }
 
 func testLogger() *logrus.Entry {
@@ -56,7 +66,7 @@ func TestAddURLSuccessfulSave(t *testing.T) {
 	idMng := newTestIDManager()
 	tokenGen := &generatorMock{}
 
-	s := NewService(idMng, tokenGen, repo, testLogger())
+	s := NewService(idMng, tokenGen, repo, &ogFetcherMock{}, testLogger())
 
 	_, err := s.Add(context.Background(), "sample-url", nil)
 	assert.Equal(t, 1, repo.callCount)
@@ -74,7 +84,7 @@ func TestAddURLSuccessfulSaveAfterTwoRetry(t *testing.T) {
 	idMng := newTestIDManager()
 	tokenGen := &generatorMock{}
 
-	s := NewService(idMng, tokenGen, repo, testLogger())
+	s := NewService(idMng, tokenGen, repo, &ogFetcherMock{}, testLogger())
 	_, err := s.Add(context.Background(), "sample-url", nil)
 	assert.Equal(t, 3, repo.callCount)
 	assert.NoError(t, err)
@@ -91,7 +101,7 @@ func TestAddURLFailedAfterMaxRetry(t *testing.T) {
 	idMng := newTestIDManager()
 	tokenGen := &generatorMock{}
 
-	s := NewService(idMng, tokenGen, repo, testLogger())
+	s := NewService(idMng, tokenGen, repo, &ogFetcherMock{}, testLogger())
 	_, err := s.Add(context.Background(), "sample-url", nil)
 	assert.Equal(t, 3, repo.callCount)
 	assert.Error(t, err)
@@ -107,7 +117,7 @@ func TestAddURLFailedReceiveNonConflictError(t *testing.T) {
 	idMng := newTestIDManager()
 	tokenGen := &generatorMock{}
 
-	s := NewService(idMng, tokenGen, repo, testLogger())
+	s := NewService(idMng, tokenGen, repo, &ogFetcherMock{}, testLogger())
 	_, err := s.Add(context.Background(), "sample-url", nil)
 	assert.Equal(t, 1, repo.callCount)
 	assert.Error(t, err)
@@ -120,7 +130,7 @@ func TestAddURLSuccessfulSaveWithHeaders(t *testing.T) {
 	idMng := newTestIDManager()
 	tokenGen := &generatorMock{}
 
-	s := NewService(idMng, tokenGen, repo, testLogger())
+	s := NewService(idMng, tokenGen, repo, &ogFetcherMock{}, testLogger())
 
 	headers := map[string]string{
 		"X-Custom-Auth": "abc123",

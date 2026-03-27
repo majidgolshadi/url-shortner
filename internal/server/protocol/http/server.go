@@ -75,6 +75,7 @@ func (s *Server) setupRoutes(tag string, commit string) *mux.Router {
 	urlRoutes.HandleFunc("", urlHandler.addUrlHandle).Methods(http.MethodPost)
 	urlRoutes.HandleFunc("/{token}", urlHandler.fetchUrlHandle).Methods(http.MethodGet)
 	urlRoutes.HandleFunc("/{token}", urlHandler.deleteUrlHandle).Methods(http.MethodDelete)
+	urlRoutes.HandleFunc("/{token}/og", urlHandler.refreshOgHandle).Methods(http.MethodPut)
 
 	router.HandleFunc("/healthcheck", hc.Handle)
 

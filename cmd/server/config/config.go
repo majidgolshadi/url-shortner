@@ -41,6 +41,8 @@ type (
 		AppDB MySqlDB `toml:"app_db" validate:"required,dive"`
 		// Telemetry OpenTelemetry configuration
 		Telemetry Telemetry `toml:"telemetry"`
+		// OpenGraph Open Graph metadata configuration
+		OpenGraph OpenGraph `toml:"opengraph"`
 	}
 
 	Coordination struct {
@@ -88,6 +90,12 @@ type (
 		ExporterType string `toml:"exporter_type"`
 		// OTLPEndpoint is the OTLP collector endpoint (e.g., "localhost:4318")
 		OTLPEndpoint string `toml:"otlp_endpoint"`
+	}
+
+	// OpenGraph holds Open Graph metadata fetching configuration
+	OpenGraph struct {
+		// FetchTimeoutSec is the HTTP timeout in seconds when fetching OG metadata from original URLs
+		FetchTimeoutSec int `toml:"fetch_timeout_sec"`
 	}
 )
 

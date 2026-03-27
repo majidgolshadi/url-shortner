@@ -22,6 +22,7 @@ type sqlRow struct {
 	Token   string         `db:"token"` // primary key
 	URL     string         `db:"url"`
 	Headers sql.NullString `db:"headers"`
+	OgHTML  sql.NullString `db:"og_html"`
 }
 type repository struct {
 	db     *sqlx.DB
@@ -162,7 +163,7 @@ func (r *repository) Fetch(ctx context.Context, token string) (*domain.URL, erro
 	log.Debug("fetching URL from database")
 
 	row := sqlRow{}
-	err := r.db.GetContext(ctx, &row, `SELECT token, url, headers FROM url_token WHERE token = ?;`, token)
+	err := r.db.GetContext(ctx, &row, `SELECT token, url, headers, og_html FROM url_token WHERE token = ?;`, token)
 
 	duration := float64(time.Since(start).Milliseconds())
 	r.queryDuration.Record(ctx, duration, otelmetric.WithAttributes(
@@ -191,11 +192,57 @@ func (r *repository) Fetch(ctx context.Context, token string) (*domain.URL, erro
 
 	span.SetStatus(codes.Ok, "URL fetched successfully")
 	log.Debug("URL fetched from database successfully")
+	var ogHTML string
+	if row.OgHTML.Valid {
+		ogHTML = row.OgHTML.String
+	}
+
 	return &domain.URL{
 		Path:    row.URL,
 		Token:   row.Token,
 		Headers: headers,
+		OgHTML:  ogHTML,
 	}, nil
+}
+
+func (r *repository) UpdateOgHTML(ctx context.Context, token string, ogHTML string) error {
+	ctx, span := telemetry.Tracer("url-shortener/storage/mysql").Start(ctx, "Repository.UpdateOgHTML")
+	defer span.End()
+
+	start := time.Now()
+	log := intLogger.WithContext(ctx, r.logger).WithFields(logrus.Fields{
+		"operation": "update_og_html",
+		"token":     token,
+	})
+
+	span.SetAttributes(
+		attribute.String("db.system", "mysql"),
+		attribute.String("db.operation", "UPDATE"),
+		attribute.String("db.table", "url_token"),
+	)
+
+	log.Debug("updating OG HTML in database")
+
+	_, err := r.db.ExecContext(ctx, `UPDATE url_token SET og_html = ? WHERE token = ?;`, ogHTML, token)
+
+	duration := float64(time.Since(start).Milliseconds())
+	r.queryDuration.Record(ctx, duration, otelmetric.WithAttributes(
+		attribute.String("db.operation", "UPDATE"),
+	))
+
+	if err != nil {
+		r.queryErrors.Add(ctx, 1, otelmetric.WithAttributes(
+			attribute.String("db.operation", "UPDATE"),
+		))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to update OG HTML")
+		log.WithError(err).Error("failed to update OG HTML in database")
+		return err
+	}
+
+	span.SetStatus(codes.Ok, "OG HTML updated successfully")
+	log.Debug("OG HTML updated in database successfully")
+	return nil
 }
 
 func (r *repository) HealthCheck(ctx context.Context) (bool, interface{}) {
