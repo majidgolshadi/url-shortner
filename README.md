@@ -10,8 +10,8 @@ It takes long URLs and squeezes them into fewer characters to make a link easier
 - [X] Multi node deployment support
 - [X] Configurable (toml)
 - [X] Administration REST APIs
-- [ ] Logging & HealthCheck
-- [ ] Set custom headers in redirection
+- [X] Logging & HealthCheck
+- [X] Set custom headers in redirection
 - [ ] Fetch page title
 - [ ] Collect statistics
 - [ ] Register an customer

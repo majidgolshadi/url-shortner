@@ -2,6 +2,8 @@ package mysql
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -17,8 +19,9 @@ import (
 )
 
 type sqlRow struct {
-	Token string `db:"token"` // primary key
-	URL   string `db:"url"`
+	Token   string         `db:"token"` // primary key
+	URL     string         `db:"url"`
+	Headers sql.NullString `db:"headers"`
 }
 type repository struct {
 	db     *sqlx.DB
@@ -64,8 +67,20 @@ func (r *repository) Save(ctx context.Context, url *domain.URL) error {
 
 	log.Debug("saving URL to database")
 
-	sql := `INSERT INTO url_token(token, url) VALUES(?, ?);`
-	_, err := r.db.ExecContext(ctx, sql, url.Token, url.Path)
+	var headersJSON []byte
+	if len(url.Headers) > 0 {
+		var marshalErr error
+		headersJSON, marshalErr = json.Marshal(url.Headers)
+		if marshalErr != nil {
+			span.RecordError(marshalErr)
+			span.SetStatus(codes.Error, "failed to marshal headers")
+			log.WithError(marshalErr).Error("failed to marshal headers")
+			return marshalErr
+		}
+	}
+
+	sqlStmt := `INSERT INTO url_token(token, url, headers) VALUES(?, ?, ?);`
+	_, err := r.db.ExecContext(ctx, sqlStmt, url.Token, url.Path, headersJSON)
 
 	duration := float64(time.Since(start).Milliseconds())
 	r.queryDuration.Record(ctx, duration, otelmetric.WithAttributes(
@@ -147,7 +162,7 @@ func (r *repository) Fetch(ctx context.Context, token string) (*domain.URL, erro
 	log.Debug("fetching URL from database")
 
 	row := sqlRow{}
-	err := r.db.GetContext(ctx, &row, `SELECT token, url FROM url_token WHERE token = ?;`, token)
+	err := r.db.GetContext(ctx, &row, `SELECT token, url, headers FROM url_token WHERE token = ?;`, token)
 
 	duration := float64(time.Since(start).Milliseconds())
 	r.queryDuration.Record(ctx, duration, otelmetric.WithAttributes(
@@ -164,11 +179,22 @@ func (r *repository) Fetch(ctx context.Context, token string) (*domain.URL, erro
 		return nil, err
 	}
 
+	var headers map[string]string
+	if row.Headers.Valid && row.Headers.String != "" {
+		if unmarshalErr := json.Unmarshal([]byte(row.Headers.String), &headers); unmarshalErr != nil {
+			span.RecordError(unmarshalErr)
+			span.SetStatus(codes.Error, "failed to unmarshal headers")
+			log.WithError(unmarshalErr).Error("failed to unmarshal headers from database")
+			return nil, unmarshalErr
+		}
+	}
+
 	span.SetStatus(codes.Ok, "URL fetched successfully")
 	log.Debug("URL fetched from database successfully")
 	return &domain.URL{
-		Path:  row.URL,
-		Token: row.Token,
+		Path:    row.URL,
+		Token:   row.Token,
+		Headers: headers,
 	}, nil
 }
 

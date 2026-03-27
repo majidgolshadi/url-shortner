@@ -58,7 +58,7 @@ func TestAddURLSuccessfulSave(t *testing.T) {
 
 	s := NewService(idMng, tokenGen, repo, testLogger())
 
-	_, err := s.Add(context.Background(), "sample-url")
+	_, err := s.Add(context.Background(), "sample-url", nil)
 	assert.Equal(t, 1, repo.callCount)
 	assert.NoError(t, err)
 }
@@ -75,7 +75,7 @@ func TestAddURLSuccessfulSaveAfterTwoRetry(t *testing.T) {
 	tokenGen := &generatorMock{}
 
 	s := NewService(idMng, tokenGen, repo, testLogger())
-	_, err := s.Add(context.Background(), "sample-url")
+	_, err := s.Add(context.Background(), "sample-url", nil)
 	assert.Equal(t, 3, repo.callCount)
 	assert.NoError(t, err)
 }
@@ -92,7 +92,7 @@ func TestAddURLFailedAfterMaxRetry(t *testing.T) {
 	tokenGen := &generatorMock{}
 
 	s := NewService(idMng, tokenGen, repo, testLogger())
-	_, err := s.Add(context.Background(), "sample-url")
+	_, err := s.Add(context.Background(), "sample-url", nil)
 	assert.Equal(t, 3, repo.callCount)
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, intErr.RepositoryDuplicateTokenErr)
@@ -108,7 +108,25 @@ func TestAddURLFailedReceiveNonConflictError(t *testing.T) {
 	tokenGen := &generatorMock{}
 
 	s := NewService(idMng, tokenGen, repo, testLogger())
-	_, err := s.Add(context.Background(), "sample-url")
+	_, err := s.Add(context.Background(), "sample-url", nil)
 	assert.Equal(t, 1, repo.callCount)
 	assert.Error(t, err)
+}
+
+func TestAddURLSuccessfulSaveWithHeaders(t *testing.T) {
+	repo := &repositoryMock{
+		saveErrorList: map[int]error{},
+	}
+	idMng := newTestIDManager()
+	tokenGen := &generatorMock{}
+
+	s := NewService(idMng, tokenGen, repo, testLogger())
+
+	headers := map[string]string{
+		"X-Custom-Auth": "abc123",
+		"X-Source":      "campaign-1",
+	}
+	_, err := s.Add(context.Background(), "sample-url", headers)
+	assert.Equal(t, 1, repo.callCount)
+	assert.NoError(t, err)
 }

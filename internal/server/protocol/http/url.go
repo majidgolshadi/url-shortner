@@ -14,7 +14,8 @@ import (
 
 type (
 	AddUrlRequest struct {
-		URL string `json:"url"`
+		URL     string            `json:"url"`
+		Headers map[string]string `json:"headers,omitempty"`
 	}
 
 	AddUrlResponse struct {
@@ -22,8 +23,9 @@ type (
 	}
 
 	FetchUrlResponse struct {
-		URL   string `json:"url"`
-		Token string `json:"token"`
+		URL     string            `json:"url"`
+		Token   string            `json:"token"`
+		Headers map[string]string `json:"headers,omitempty"`
 	}
 
 	InternalServerError struct {
@@ -37,7 +39,7 @@ type (
 		logger     *logrus.Entry
 	}
 	URLService interface {
-		Add(ctx context.Context, url string) (token string, insertError error)
+		Add(ctx context.Context, url string, headers map[string]string) (token string, insertError error)
 		Delete(ctx context.Context, token string) error
 		Fetch(ctx context.Context, token string) (*domain.URL, error)
 	}
@@ -64,7 +66,7 @@ func (uh *URLHandler) addUrlHandle(resp http.ResponseWriter, req *http.Request) 
 	log = log.WithField("url", request.URL)
 	log.Info("processing add URL request")
 
-	token, err := uh.urlService.Add(req.Context(), request.URL)
+	token, err := uh.urlService.Add(req.Context(), request.URL, request.Headers)
 	if err != nil {
 		log.WithError(err).Error("add URL request failed")
 		uh.internalServerError(err, resp)
@@ -108,8 +110,9 @@ func (uh *URLHandler) fetchUrlHandle(resp http.ResponseWriter, req *http.Request
 	resp.WriteHeader(http.StatusOK)
 	// nolint:errcheck
 	json.NewEncoder(resp).Encode(&FetchUrlResponse{
-		URL:   urlData.Path,
-		Token: urlData.Token,
+		URL:     urlData.Path,
+		Token:   urlData.Token,
+		Headers: urlData.Headers,
 	})
 }
 
@@ -140,6 +143,39 @@ func (uh *URLHandler) deleteUrlHandle(resp http.ResponseWriter, req *http.Reques
 
 	log.Info("delete URL request completed")
 	resp.WriteHeader(http.StatusAccepted)
+}
+
+func (uh *URLHandler) redirectHandle(resp http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	token := vars["token"]
+
+	log := intLogger.WithContext(req.Context(), uh.logger).WithFields(logrus.Fields{
+		"handler": "redirect",
+		"token":   token,
+	})
+
+	if token == "" {
+		log.Warn("missing token parameter")
+		resp.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	log.Debug("processing redirect request")
+
+	urlData, err := uh.urlService.Fetch(req.Context(), token)
+	if err != nil {
+		log.WithError(err).Error("redirect request failed")
+		uh.internalServerError(err, resp)
+		return
+	}
+
+	// Set custom headers on the redirect response
+	for key, value := range urlData.Headers {
+		resp.Header().Set(key, value)
+	}
+
+	log.WithField("url", urlData.Path).Debug("redirecting to source URL")
+	http.Redirect(resp, req, urlData.Path, http.StatusFound)
 }
 
 func (uh *URLHandler) internalServerError(err error, resp http.ResponseWriter) {

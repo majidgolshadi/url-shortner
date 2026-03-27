@@ -92,8 +92,9 @@ func NewService(idProvider IDProvider, tokenGenerator token.Generator, repositor
 	}
 }
 
-// Add creates a shortened URL. It retries on token conflicts up to maxGeneratedTokenConflictRetry times.
-func (s *Service) Add(ctx context.Context, url string) (string, error) {
+// Add creates a shortened URL with optional custom headers.
+// It retries on token conflicts up to maxGeneratedTokenConflictRetry times.
+func (s *Service) Add(ctx context.Context, url string, headers map[string]string) (string, error) {
 	ctx, span := telemetry.Tracer("url-shortener/usecase/url").Start(ctx, "Service.Add")
 	defer span.End()
 
@@ -121,8 +122,9 @@ func (s *Service) Add(ctx context.Context, url string) (string, error) {
 		span.SetAttributes(attribute.String("url.token", tok))
 
 		lastErr = s.repository.Save(ctx, &domain.URL{
-			Path:  url,
-			Token: tok,
+			Path:    url,
+			Token:   tok,
+			Headers: headers,
 		})
 
 		if lastErr == nil {

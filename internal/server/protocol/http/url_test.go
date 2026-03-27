@@ -17,7 +17,7 @@ import (
 
 type urlServiceMock struct{}
 
-func (mock *urlServiceMock) Add(_ context.Context, url string) (string, error) {
+func (mock *urlServiceMock) Add(_ context.Context, url string, _ map[string]string) (string, error) {
 	if url == "http://successful-url.com" {
 		return "token", nil
 	}
@@ -36,6 +36,9 @@ func (mock *urlServiceMock) Fetch(_ context.Context, token string) (*domain.URL,
 		return &domain.URL{
 			Path:  "http://successful-url.com",
 			Token: "token",
+			Headers: map[string]string{
+				"X-Custom-Header": "custom-value",
+			},
 		}, nil
 	}
 	return nil, errors.New("dummy error")
@@ -63,6 +66,11 @@ func TestAddUrlHandle(t *testing.T) {
 		},
 		"valid request - successful": {
 			requestBody:            `{"url":"http://successful-url.com"}`,
+			expectedRespStatusCode: http.StatusOK,
+			expectedRespBody:       "{\"token\":\"token\"}\n",
+		},
+		"valid request with headers - successful": {
+			requestBody:            `{"url":"http://successful-url.com","headers":{"X-Custom":"value"}}`,
 			expectedRespStatusCode: http.StatusOK,
 			expectedRespBody:       "{\"token\":\"token\"}\n",
 		},
@@ -99,7 +107,7 @@ func TestFetchUrlHandle(t *testing.T) {
 		"valid request - successful": {
 			token:                  "successful-token",
 			expectedRespStatusCode: http.StatusOK,
-			expectedRespBody:       "{\"url\":\"http://successful-url.com\",\"token\":\"token\"}\n",
+			expectedRespBody:       "{\"url\":\"http://successful-url.com\",\"token\":\"token\",\"headers\":{\"X-Custom-Header\":\"custom-value\"}}\n",
 		},
 		"valid request - internal server error": {
 			token:                  "fail-token",
@@ -118,6 +126,48 @@ func TestFetchUrlHandle(t *testing.T) {
 			urlHdl.fetchUrlHandle(resp, req)
 			assert.Equal(t, test.expectedRespStatusCode, resp.Code)
 			assert.Equal(t, test.expectedRespBody, resp.Body.String())
+		})
+	}
+}
+
+func TestRedirectHandle(t *testing.T) {
+	urlHdl := getURLHandler()
+
+	tests := map[string]struct {
+		token                  string
+		expectedRespStatusCode int
+		expectedHeaders        map[string]string
+	}{
+		"redirect without token": {
+			token:                  "",
+			expectedRespStatusCode: http.StatusBadRequest,
+		},
+		"redirect successful with custom headers": {
+			token:                  "successful-token",
+			expectedRespStatusCode: http.StatusFound,
+			expectedHeaders: map[string]string{
+				"X-Custom-Header": "custom-value",
+				"Location":        "http://successful-url.com",
+			},
+		},
+		"redirect - internal server error": {
+			token:                  "fail-token",
+			expectedRespStatusCode: http.StatusInternalServerError,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			resp := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, "/", strings.NewReader(""))
+			req = mux.SetURLVars(req, map[string]string{
+				"token": test.token,
+			})
+			urlHdl.redirectHandle(resp, req)
+			assert.Equal(t, test.expectedRespStatusCode, resp.Code)
+			for key, value := range test.expectedHeaders {
+				assert.Equal(t, value, resp.Header().Get(key))
+			}
 		})
 	}
 }

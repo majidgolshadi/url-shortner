@@ -26,6 +26,7 @@ DROP TABLE IF EXISTS `url_token`;
 CREATE TABLE `url_token` (
    `token` VARCHAR(100) NOT NULL,
    `url` VARCHAR(100) NOT NULL,
+   `headers` JSON DEFAULT NULL,
    PRIMARY KEY (`token`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
