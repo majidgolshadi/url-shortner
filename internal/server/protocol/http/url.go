@@ -6,8 +6,10 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/sirupsen/logrus"
 
 	"github.com/majidgolshadi/url-shortner/internal/domain"
+	intLogger "github.com/majidgolshadi/url-shortner/internal/infrastructure/logger"
 )
 
 type (
@@ -32,6 +34,7 @@ type (
 type (
 	URLHandler struct {
 		urlService URLService
+		logger     *logrus.Entry
 	}
 	URLService interface {
 		Add(ctx context.Context, url string) (token string, insertError error)
@@ -40,26 +43,35 @@ type (
 	}
 )
 
-func NewURLHandler(urlService URLService) *URLHandler {
+func NewURLHandler(urlService URLService, logger *logrus.Entry) *URLHandler {
 	return &URLHandler{
 		urlService: urlService,
+		logger:     logger,
 	}
 }
 
 func (uh *URLHandler) addUrlHandle(resp http.ResponseWriter, req *http.Request) {
+	log := intLogger.WithContext(req.Context(), uh.logger).WithField("handler", "add_url")
+
 	var request AddUrlRequest
 	err := json.NewDecoder(req.Body).Decode(&request)
 	if err != nil || request.URL == "" {
+		log.WithError(err).Warn("invalid request body")
 		resp.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
+	log = log.WithField("url", request.URL)
+	log.Info("processing add URL request")
+
 	token, err := uh.urlService.Add(req.Context(), request.URL)
 	if err != nil {
+		log.WithError(err).Error("add URL request failed")
 		uh.internalServerError(err, resp)
 		return
 	}
 
+	log.WithField("token", token).Info("add URL request completed")
 	resp.WriteHeader(http.StatusOK)
 	// nolint:errcheck
 	json.NewEncoder(resp).Encode(&AddUrlResponse{
@@ -71,18 +83,28 @@ func (uh *URLHandler) fetchUrlHandle(resp http.ResponseWriter, req *http.Request
 	vars := mux.Vars(req)
 	token := vars["token"]
 
+	log := intLogger.WithContext(req.Context(), uh.logger).WithFields(logrus.Fields{
+		"handler": "fetch_url",
+		"token":   token,
+	})
+
 	if token == "" {
+		log.Warn("missing token parameter")
 		resp.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
+	log.Debug("processing fetch URL request")
+
 	// TODO: check the url owner
 	urlData, err := uh.urlService.Fetch(req.Context(), token)
 	if err != nil {
+		log.WithError(err).Error("fetch URL request failed")
 		uh.internalServerError(err, resp)
 		return
 	}
 
+	log.Debug("fetch URL request completed")
 	resp.WriteHeader(http.StatusOK)
 	// nolint:errcheck
 	json.NewEncoder(resp).Encode(&FetchUrlResponse{
@@ -95,18 +117,28 @@ func (uh *URLHandler) deleteUrlHandle(resp http.ResponseWriter, req *http.Reques
 	vars := mux.Vars(req)
 	token := vars["token"]
 
+	log := intLogger.WithContext(req.Context(), uh.logger).WithFields(logrus.Fields{
+		"handler": "delete_url",
+		"token":   token,
+	})
+
 	if token == "" {
+		log.Warn("missing token parameter")
 		resp.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
+	log.Info("processing delete URL request")
+
 	// TODO: check the url owner
 	err := uh.urlService.Delete(req.Context(), token)
 	if err != nil {
+		log.WithError(err).Error("delete URL request failed")
 		uh.internalServerError(err, resp)
 		return
 	}
 
+	log.Info("delete URL request completed")
 	resp.WriteHeader(http.StatusAccepted)
 }
 

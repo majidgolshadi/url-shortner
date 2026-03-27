@@ -9,6 +9,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/majidgolshadi/url-shortner/internal/domain"
@@ -41,7 +42,7 @@ func (mock *urlServiceMock) Fetch(_ context.Context, token string) (*domain.URL,
 }
 
 func getURLHandler() *URLHandler {
-	return NewURLHandler(&urlServiceMock{})
+	return NewURLHandler(&urlServiceMock{}, logrus.NewEntry(logrus.StandardLogger()))
 }
 
 func TestAddUrlHandle(t *testing.T) {

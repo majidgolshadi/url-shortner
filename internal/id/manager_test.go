@@ -2,9 +2,12 @@ package id
 
 import (
 	"context"
-	"github.com/majidgolshadi/url-shortner/internal/domain"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
+
+	"github.com/majidgolshadi/url-shortner/internal/domain"
 )
 
 type rangeManagerMock struct {
@@ -31,7 +34,7 @@ func TestIDManagement(t *testing.T) {
 			End:   3,
 		},
 		jumpRange: 100,
-	})
+	}, logrus.NewEntry(logrus.StandardLogger()))
 
 	assert.Equal(t, uint(2), idMng.GetLastID())
 	nextID, _ := idMng.GetNextID(ctx)

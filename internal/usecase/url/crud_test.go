@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/majidgolshadi/url-shortner/internal/domain"
@@ -39,8 +40,12 @@ func (mock *generatorMock) GetToken(_ uint) string {
 	return "token"
 }
 
+func testLogger() *logrus.Entry {
+	return logrus.NewEntry(logrus.StandardLogger())
+}
+
 func newTestIDManager() *id.Manager {
-	mng, _ := id.NewManager(context.Background(), id.NewInMemoryRangeManager(1))
+	mng, _ := id.NewManager(context.Background(), id.NewInMemoryRangeManager(1), testLogger())
 	return mng
 }
 
@@ -51,7 +56,7 @@ func TestAddURLSuccessfulSave(t *testing.T) {
 	idMng := newTestIDManager()
 	tokenGen := &generatorMock{}
 
-	s := NewService(idMng, tokenGen, repo)
+	s := NewService(idMng, tokenGen, repo, testLogger())
 
 	_, err := s.Add(context.Background(), "sample-url")
 	assert.Equal(t, 1, repo.callCount)
@@ -69,7 +74,7 @@ func TestAddURLSuccessfulSaveAfterTwoRetry(t *testing.T) {
 	idMng := newTestIDManager()
 	tokenGen := &generatorMock{}
 
-	s := NewService(idMng, tokenGen, repo)
+	s := NewService(idMng, tokenGen, repo, testLogger())
 	_, err := s.Add(context.Background(), "sample-url")
 	assert.Equal(t, 3, repo.callCount)
 	assert.NoError(t, err)
@@ -86,7 +91,7 @@ func TestAddURLFailedAfterMaxRetry(t *testing.T) {
 	idMng := newTestIDManager()
 	tokenGen := &generatorMock{}
 
-	s := NewService(idMng, tokenGen, repo)
+	s := NewService(idMng, tokenGen, repo, testLogger())
 	_, err := s.Add(context.Background(), "sample-url")
 	assert.Equal(t, 3, repo.callCount)
 	assert.Error(t, err)
@@ -102,7 +107,7 @@ func TestAddURLFailedReceiveNonConflictError(t *testing.T) {
 	idMng := newTestIDManager()
 	tokenGen := &generatorMock{}
 
-	s := NewService(idMng, tokenGen, repo)
+	s := NewService(idMng, tokenGen, repo, testLogger())
 	_, err := s.Add(context.Background(), "sample-url")
 	assert.Equal(t, 1, repo.callCount)
 	assert.Error(t, err)

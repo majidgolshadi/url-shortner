@@ -1,9 +1,11 @@
 package logger
 
 import (
+	"context"
 	"os"
 
 	"github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // TimestampFormat common timestamp format for the package
@@ -32,4 +34,19 @@ func newLogger() *logrus.Logger {
 		},
 	})
 	return logger
+}
+
+// WithContext enriches the log entry with trace context (trace_id and span_id)
+// extracted from the provided context. This enables log-trace correlation
+// in observability backends like Grafana, Jaeger, or Datadog.
+func WithContext(ctx context.Context, entry *logrus.Entry) *logrus.Entry {
+	spanCtx := trace.SpanContextFromContext(ctx)
+	if !spanCtx.IsValid() {
+		return entry
+	}
+
+	return entry.WithFields(logrus.Fields{
+		"trace_id": spanCtx.TraceID().String(),
+		"span_id":  spanCtx.SpanID().String(),
+	})
 }

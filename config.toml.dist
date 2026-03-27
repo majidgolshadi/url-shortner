@@ -32,3 +32,11 @@ host="127.0.0.1:3306"
 db_name="url_shortener"
 username="root"
 password="toor"
+
+[telemetry]
+# Enable or disable OpenTelemetry tracing and metrics collection
+enabled=true
+# Exporter type: "stdout" for development (prints to console), "otlp" for production (sends to collector)
+exporter_type="stdout"
+# OTLP collector endpoint (only used when exporter_type="otlp")
+otlp_endpoint="localhost:4318"

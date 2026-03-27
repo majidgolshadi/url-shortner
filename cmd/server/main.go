@@ -10,6 +10,7 @@ import (
 	intLogger "github.com/majidgolshadi/url-shortner/internal/infrastructure/logger"
 	"github.com/majidgolshadi/url-shortner/internal/infrastructure/sql"
 	"github.com/majidgolshadi/url-shortner/internal/infrastructure/sql/mysql"
+	"github.com/majidgolshadi/url-shortner/internal/infrastructure/telemetry"
 	"github.com/majidgolshadi/url-shortner/internal/server/protocol/http"
 	mysqlRepo "github.com/majidgolshadi/url-shortner/internal/storage/mysql"
 	"github.com/majidgolshadi/url-shortner/internal/token"
@@ -35,18 +36,46 @@ func runServer() error {
 		return err
 	}
 
+	logger := intLogger.NewLogger(cfg.LogLevel)
+
+	// Initialize OpenTelemetry
+	telemetryCtx, telemetryCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer telemetryCancel()
+
+	tp, err := telemetry.Setup(telemetryCtx, telemetry.Config{
+		ServiceName:    cfg.ServiceName,
+		ServiceVersion: Tag,
+		Environment:    cfg.Environment,
+		ExporterType:   cfg.Telemetry.ExporterType,
+		OTLPEndpoint:   cfg.Telemetry.OTLPEndpoint,
+		Enabled:        cfg.Telemetry.Enabled,
+	})
+	if err != nil {
+		logger.WithError(err).Error("failed to initialize telemetry")
+		return err
+	}
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if shutdownErr := tp.Shutdown(shutdownCtx); shutdownErr != nil {
+			logger.WithError(shutdownErr).Error("failed to shutdown telemetry")
+		}
+	}()
+
+	logger.Info("telemetry initialized")
+
 	coordinationDB, err := sql.NewDBFactory(newDBConfig(cfg.ServiceName, cfg.Coordination.DataStore)).CreateDB()
 	if err != nil {
 		return err
 	}
 
-	coordinationStorage := mysqlRepo.NewCoordinator(coordinationDB)
+	coordinationStorage := mysqlRepo.NewCoordinator(coordinationDB, logger.WithField("component", "coordinator"))
 	rangeMng := id.NewDataStoreRangeManager(cfg.Coordination.NodeID, cfg.Coordination.RangeSize, coordinationStorage)
 
 	startupCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	idMng, err := id.NewManager(startupCtx, rangeMng)
+	idMng, err := id.NewManager(startupCtx, rangeMng, logger.WithField("component", "id_manager"))
 	if err != nil {
 		return err
 	}
@@ -56,11 +85,10 @@ func runServer() error {
 		return err
 	}
 
-	repo := mysqlRepo.NewRepository(appDB)
-	urlSrv := url.NewService(idMng, &token.Base62TokenGenerator{}, repo)
-	logger := intLogger.NewLogger(cfg.LogLevel)
+	repo := mysqlRepo.NewRepository(appDB, logger.WithField("component", "repository"))
+	urlSrv := url.NewService(idMng, &token.Base62TokenGenerator{}, repo, logger.WithField("component", "url_service"))
 
-	httpSrv := http.NewHTTPServer(urlSrv, logger)
+	httpSrv := http.NewHTTPServer(urlSrv, logger, cfg.ServiceName)
 	return httpSrv.Run(Tag, CommitHash, cfg.HTTPAddr)
 }
 

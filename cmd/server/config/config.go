@@ -39,6 +39,8 @@ type (
 		Coordination Coordination `toml:"coordination" validate:"required,dive"`
 		// MySqlDB application DB config
 		AppDB MySqlDB `toml:"app_db" validate:"required,dive"`
+		// Telemetry OpenTelemetry configuration
+		Telemetry Telemetry `toml:"telemetry"`
 	}
 
 	Coordination struct {
@@ -76,6 +78,16 @@ type (
 		Username string `toml:"username" validate:"required"`
 		// Password ...
 		Password string `toml:"password" validate:"required"`
+	}
+
+	// Telemetry holds OpenTelemetry configuration
+	Telemetry struct {
+		// Enabled controls whether telemetry collection is active
+		Enabled bool `toml:"enabled"`
+		// ExporterType is the type of exporter to use ("otlp" or "stdout")
+		ExporterType string `toml:"exporter_type"`
+		// OTLPEndpoint is the OTLP collector endpoint (e.g., "localhost:4318")
+		OTLPEndpoint string `toml:"otlp_endpoint"`
 	}
 )
 
