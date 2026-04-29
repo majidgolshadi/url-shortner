@@ -13,11 +13,14 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/majidgolshadi/url-shortner/internal/domain"
+	"github.com/majidgolshadi/url-shortner/internal/server/protocol/http/middleware"
 )
+
+const testCustomerID = "owner-customer-id"
 
 type urlServiceMock struct{}
 
-func (mock *urlServiceMock) Add(_ context.Context, url string, _ map[string]string) (string, error) {
+func (mock *urlServiceMock) Add(_ context.Context, url string, _ map[string]string, _ string) (string, error) {
 	if url == "http://successful-url.com" {
 		return "token", nil
 	}
@@ -39,13 +42,22 @@ func (mock *urlServiceMock) Fetch(_ context.Context, token string) (*domain.URL,
 			Headers: map[string]string{
 				"X-Custom-Header": "custom-value",
 			},
-			OgHTML: `<meta property="og:title" content="Test Title" />`,
+			OgHTML:     `<meta property="og:title" content="Test Title" />`,
+			CustomerID: testCustomerID,
 		}, nil
 	}
 	if token == "no-og-token" {
 		return &domain.URL{
-			Path:  "http://no-og-url.com",
-			Token: "no-og-token",
+			Path:       "http://no-og-url.com",
+			Token:      "no-og-token",
+			CustomerID: testCustomerID,
+		}, nil
+	}
+	if token == "other-owner-token" {
+		return &domain.URL{
+			Path:       "http://other-url.com",
+			Token:      "other-owner-token",
+			CustomerID: "some-other-customer-id",
 		}, nil
 	}
 	return nil, errors.New("dummy error")
@@ -62,34 +74,52 @@ func getURLHandler() *URLHandler {
 	return NewURLHandler(&urlServiceMock{}, logrus.NewEntry(logrus.StandardLogger()))
 }
 
+// withCustomer injects a customer into the request context (simulates auth middleware).
+func withCustomer(req *http.Request, customerID string) *http.Request {
+	customer := &domain.Customer{ID: customerID}
+	ctx := context.WithValue(req.Context(), middleware.TestCustomerContextKey, customer)
+	return req.WithContext(ctx)
+}
+
 func TestAddUrlHandle(t *testing.T) {
 	urlHdl := getURLHandler()
 
 	tests := map[string]struct {
 		requestBody            string
+		injectCustomer         bool
 		expectedRespStatusCode int
 		expectedRespBody       string
 	}{
+		"no customer in context (no auth)": {
+			requestBody:            `{"url":"http://successful-url.com"}`,
+			injectCustomer:         false,
+			expectedRespStatusCode: http.StatusUnauthorized,
+		},
 		"none json request": {
 			requestBody:            "",
+			injectCustomer:         true,
 			expectedRespStatusCode: http.StatusBadRequest,
 		},
 		"empty url request": {
 			requestBody:            `{"unknown_key":"value"}`,
+			injectCustomer:         true,
 			expectedRespStatusCode: http.StatusBadRequest,
 		},
 		"valid request - successful": {
 			requestBody:            `{"url":"http://successful-url.com"}`,
+			injectCustomer:         true,
 			expectedRespStatusCode: http.StatusOK,
 			expectedRespBody:       "{\"token\":\"token\"}\n",
 		},
 		"valid request with headers - successful": {
 			requestBody:            `{"url":"http://successful-url.com","headers":{"X-Custom":"value"}}`,
+			injectCustomer:         true,
 			expectedRespStatusCode: http.StatusOK,
 			expectedRespBody:       "{\"token\":\"token\"}\n",
 		},
 		"valid request - internal server error": {
 			requestBody:            `{"url":"http://fail-url.com"}`,
+			injectCustomer:         true,
 			expectedRespStatusCode: http.StatusInternalServerError,
 			expectedRespBody:       "{\"message\":\"dummy error\"}\n",
 		},
@@ -99,9 +129,14 @@ func TestAddUrlHandle(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			resp := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(test.requestBody))
+			if test.injectCustomer {
+				req = withCustomer(req, testCustomerID)
+			}
 			urlHdl.addUrlHandle(resp, req)
 			assert.Equal(t, test.expectedRespStatusCode, resp.Code)
-			assert.Equal(t, test.expectedRespBody, resp.Body.String())
+			if test.expectedRespBody != "" {
+				assert.Equal(t, test.expectedRespBody, resp.Body.String())
+			}
 		})
 	}
 }
@@ -111,22 +146,42 @@ func TestFetchUrlHandle(t *testing.T) {
 
 	tests := map[string]struct {
 		token                  string
+		customerID             string
+		injectCustomer         bool
 		expectedRespStatusCode int
 		expectedRespBody       string
 	}{
+		"no customer in context (no auth)": {
+			token:                  "successful-token",
+			injectCustomer:         false,
+			expectedRespStatusCode: http.StatusUnauthorized,
+		},
 		"url without token": {
 			token:                  "",
+			injectCustomer:         true,
+			customerID:             testCustomerID,
 			expectedRespStatusCode: http.StatusBadRequest,
 		},
 		"valid request - successful": {
 			token:                  "successful-token",
+			injectCustomer:         true,
+			customerID:             testCustomerID,
 			expectedRespStatusCode: http.StatusOK,
 			expectedRespBody:       "{\"url\":\"http://successful-url.com\",\"token\":\"token\",\"headers\":{\"X-Custom-Header\":\"custom-value\"}}\n",
 		},
 		"valid request - internal server error": {
 			token:                  "fail-token",
+			injectCustomer:         true,
+			customerID:             testCustomerID,
 			expectedRespStatusCode: http.StatusInternalServerError,
 			expectedRespBody:       "{\"message\":\"dummy error\"}\n",
+		},
+		"valid request - forbidden (not owner)": {
+			token:                  "other-owner-token",
+			injectCustomer:         true,
+			customerID:             testCustomerID,
+			expectedRespStatusCode: http.StatusForbidden,
+			expectedRespBody:       "{\"message\":\"forbidden\"}\n",
 		},
 	}
 
@@ -137,9 +192,14 @@ func TestFetchUrlHandle(t *testing.T) {
 			req = mux.SetURLVars(req, map[string]string{
 				"token": test.token,
 			})
+			if test.injectCustomer {
+				req = withCustomer(req, test.customerID)
+			}
 			urlHdl.fetchUrlHandle(resp, req)
 			assert.Equal(t, test.expectedRespStatusCode, resp.Code)
-			assert.Equal(t, test.expectedRespBody, resp.Body.String())
+			if test.expectedRespBody != "" {
+				assert.Equal(t, test.expectedRespBody, resp.Body.String())
+			}
 		})
 	}
 }
@@ -283,21 +343,41 @@ func TestDeleteUrlHandle(t *testing.T) {
 
 	tests := map[string]struct {
 		token                  string
+		customerID             string
+		injectCustomer         bool
 		expectedRespStatusCode int
 		expectedRespBody       string
 	}{
+		"no customer in context (no auth)": {
+			token:                  "successful-token",
+			injectCustomer:         false,
+			expectedRespStatusCode: http.StatusUnauthorized,
+		},
 		"url without token": {
 			token:                  "",
+			injectCustomer:         true,
+			customerID:             testCustomerID,
 			expectedRespStatusCode: http.StatusBadRequest,
 		},
 		"valid request - successful": {
 			token:                  "successful-token",
+			injectCustomer:         true,
+			customerID:             testCustomerID,
 			expectedRespStatusCode: http.StatusAccepted,
 		},
-		"valid request - internal server error": {
+		"valid request - fetch error": {
 			token:                  "fail-token",
+			injectCustomer:         true,
+			customerID:             testCustomerID,
 			expectedRespStatusCode: http.StatusInternalServerError,
 			expectedRespBody:       "{\"message\":\"dummy error\"}\n",
+		},
+		"valid request - forbidden (not owner)": {
+			token:                  "other-owner-token",
+			injectCustomer:         true,
+			customerID:             testCustomerID,
+			expectedRespStatusCode: http.StatusForbidden,
+			expectedRespBody:       "{\"message\":\"forbidden\"}\n",
 		},
 	}
 
@@ -308,9 +388,14 @@ func TestDeleteUrlHandle(t *testing.T) {
 			req = mux.SetURLVars(req, map[string]string{
 				"token": test.token,
 			})
+			if test.injectCustomer {
+				req = withCustomer(req, test.customerID)
+			}
 			urlHdl.deleteUrlHandle(resp, req)
 			assert.Equal(t, test.expectedRespStatusCode, resp.Code)
-			assert.Equal(t, test.expectedRespBody, resp.Body.String())
+			if test.expectedRespBody != "" {
+				assert.Equal(t, test.expectedRespBody, resp.Body.String())
+			}
 		})
 	}
 }

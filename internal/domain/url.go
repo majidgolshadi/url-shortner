@@ -7,5 +7,6 @@ type URL struct {
 	Headers map[string]string
 	// OgHTML contains pre-rendered Open Graph HTML meta tags fetched from the
 	// original URL. This is served directly to social media bots for link previews.
-	OgHTML string
+	OgHTML     string
+	CustomerID string
 }

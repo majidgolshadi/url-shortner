@@ -17,6 +17,7 @@ type repositoryMock struct {
 	callCount     int
 	errorIndex    int
 	saveErrorList map[int]error
+	urlCount      int
 }
 
 func (mock *repositoryMock) Save(_ context.Context, _ *domain.URL) error {
@@ -36,6 +37,10 @@ func (mock *repositoryMock) Fetch(_ context.Context, _ string) (*domain.URL, err
 
 func (mock *repositoryMock) UpdateOgHTML(_ context.Context, _ string, _ string) error {
 	return nil
+}
+
+func (mock *repositoryMock) CountByCustomer(_ context.Context, _ string) (int, error) {
+	return mock.urlCount, nil
 }
 
 type generatorMock struct{}
@@ -59,6 +64,8 @@ func newTestIDManager() *id.Manager {
 	return mng
 }
 
+const testBudget = 100
+
 func TestAddURLSuccessfulSave(t *testing.T) {
 	repo := &repositoryMock{
 		saveErrorList: map[int]error{},
@@ -66,9 +73,9 @@ func TestAddURLSuccessfulSave(t *testing.T) {
 	idMng := newTestIDManager()
 	tokenGen := &generatorMock{}
 
-	s := NewService(idMng, tokenGen, repo, &ogFetcherMock{}, testLogger())
+	s := NewService(idMng, tokenGen, repo, &ogFetcherMock{}, testBudget, testLogger())
 
-	_, err := s.Add(context.Background(), "sample-url", nil)
+	_, err := s.Add(context.Background(), "sample-url", nil, "customer-1")
 	assert.Equal(t, 1, repo.callCount)
 	assert.NoError(t, err)
 }
@@ -84,8 +91,8 @@ func TestAddURLSuccessfulSaveAfterTwoRetry(t *testing.T) {
 	idMng := newTestIDManager()
 	tokenGen := &generatorMock{}
 
-	s := NewService(idMng, tokenGen, repo, &ogFetcherMock{}, testLogger())
-	_, err := s.Add(context.Background(), "sample-url", nil)
+	s := NewService(idMng, tokenGen, repo, &ogFetcherMock{}, testBudget, testLogger())
+	_, err := s.Add(context.Background(), "sample-url", nil, "customer-1")
 	assert.Equal(t, 3, repo.callCount)
 	assert.NoError(t, err)
 }
@@ -101,8 +108,8 @@ func TestAddURLFailedAfterMaxRetry(t *testing.T) {
 	idMng := newTestIDManager()
 	tokenGen := &generatorMock{}
 
-	s := NewService(idMng, tokenGen, repo, &ogFetcherMock{}, testLogger())
-	_, err := s.Add(context.Background(), "sample-url", nil)
+	s := NewService(idMng, tokenGen, repo, &ogFetcherMock{}, testBudget, testLogger())
+	_, err := s.Add(context.Background(), "sample-url", nil, "customer-1")
 	assert.Equal(t, 3, repo.callCount)
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, intErr.RepositoryDuplicateTokenErr)
@@ -117,8 +124,8 @@ func TestAddURLFailedReceiveNonConflictError(t *testing.T) {
 	idMng := newTestIDManager()
 	tokenGen := &generatorMock{}
 
-	s := NewService(idMng, tokenGen, repo, &ogFetcherMock{}, testLogger())
-	_, err := s.Add(context.Background(), "sample-url", nil)
+	s := NewService(idMng, tokenGen, repo, &ogFetcherMock{}, testBudget, testLogger())
+	_, err := s.Add(context.Background(), "sample-url", nil, "customer-1")
 	assert.Equal(t, 1, repo.callCount)
 	assert.Error(t, err)
 }
@@ -130,13 +137,43 @@ func TestAddURLSuccessfulSaveWithHeaders(t *testing.T) {
 	idMng := newTestIDManager()
 	tokenGen := &generatorMock{}
 
-	s := NewService(idMng, tokenGen, repo, &ogFetcherMock{}, testLogger())
+	s := NewService(idMng, tokenGen, repo, &ogFetcherMock{}, testBudget, testLogger())
 
 	headers := map[string]string{
 		"X-Custom-Auth": "abc123",
 		"X-Source":      "campaign-1",
 	}
-	_, err := s.Add(context.Background(), "sample-url", headers)
+	_, err := s.Add(context.Background(), "sample-url", headers, "customer-1")
+	assert.Equal(t, 1, repo.callCount)
+	assert.NoError(t, err)
+}
+
+func TestAddURL_BudgetExceeded(t *testing.T) {
+	repo := &repositoryMock{
+		saveErrorList: map[int]error{},
+		urlCount:      testBudget,
+	}
+	idMng := newTestIDManager()
+	tokenGen := &generatorMock{}
+
+	s := NewService(idMng, tokenGen, repo, &ogFetcherMock{}, testBudget, testLogger())
+
+	_, err := s.Add(context.Background(), "sample-url", nil, "customer-1")
+	assert.Equal(t, 0, repo.callCount)
+	assert.ErrorIs(t, err, intErr.BudgetExceededErr)
+}
+
+func TestAddURL_BudgetNotExceeded(t *testing.T) {
+	repo := &repositoryMock{
+		saveErrorList: map[int]error{},
+		urlCount:      testBudget - 1,
+	}
+	idMng := newTestIDManager()
+	tokenGen := &generatorMock{}
+
+	s := NewService(idMng, tokenGen, repo, &ogFetcherMock{}, testBudget, testLogger())
+
+	_, err := s.Add(context.Background(), "sample-url", nil, "customer-1")
 	assert.Equal(t, 1, repo.callCount)
 	assert.NoError(t, err)
 }

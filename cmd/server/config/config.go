@@ -43,6 +43,8 @@ type (
 		Telemetry Telemetry `toml:"telemetry"`
 		// OpenGraph Open Graph metadata configuration
 		OpenGraph OpenGraph `toml:"opengraph"`
+		// Customer customer-related configuration
+		Customer Customer `toml:"customer" validate:"required,dive"`
 	}
 
 	Coordination struct {
@@ -96,6 +98,12 @@ type (
 	OpenGraph struct {
 		// FetchTimeoutSec is the HTTP timeout in seconds when fetching OG metadata from original URLs
 		FetchTimeoutSec int `toml:"fetch_timeout_sec"`
+	}
+
+	// Customer holds customer-related configuration
+	Customer struct {
+		// DefaultBudget is the maximum number of URLs a customer may create
+		DefaultBudget int `toml:"default_budget" validate:"required,min=1"`
 	}
 )
 

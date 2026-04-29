@@ -10,8 +10,10 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/majidgolshadi/url-shortner/internal/domain"
+	intErr "github.com/majidgolshadi/url-shortner/internal/infrastructure/errors"
 	intLogger "github.com/majidgolshadi/url-shortner/internal/infrastructure/logger"
 	"github.com/majidgolshadi/url-shortner/internal/opengraph"
+	"github.com/majidgolshadi/url-shortner/internal/server/protocol/http/middleware"
 )
 
 type (
@@ -41,7 +43,7 @@ type (
 		logger     *logrus.Entry
 	}
 	URLService interface {
-		Add(ctx context.Context, url string, headers map[string]string) (token string, insertError error)
+		Add(ctx context.Context, url string, headers map[string]string, customerID string) (token string, insertError error)
 		Delete(ctx context.Context, token string) error
 		Fetch(ctx context.Context, token string) (*domain.URL, error)
 		RefreshOG(ctx context.Context, token string) error
@@ -58,6 +60,12 @@ func NewURLHandler(urlService URLService, logger *logrus.Entry) *URLHandler {
 func (uh *URLHandler) addUrlHandle(resp http.ResponseWriter, req *http.Request) {
 	log := intLogger.WithContext(req.Context(), uh.logger).WithField("handler", "add_url")
 
+	customer, ok := middleware.CustomerFromContext(req.Context())
+	if !ok {
+		resp.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
 	var request AddUrlRequest
 	err := json.NewDecoder(req.Body).Decode(&request)
 	if err != nil || request.URL == "" {
@@ -69,8 +77,14 @@ func (uh *URLHandler) addUrlHandle(resp http.ResponseWriter, req *http.Request) 
 	log = log.WithField("url", request.URL)
 	log.Info("processing add URL request")
 
-	token, err := uh.urlService.Add(req.Context(), request.URL, request.Headers)
+	token, err := uh.urlService.Add(req.Context(), request.URL, request.Headers, customer.ID)
 	if err != nil {
+		if intErr.BudgetExceededErr.Is(err) {
+			resp.WriteHeader(http.StatusPaymentRequired)
+			// nolint:errcheck
+			json.NewEncoder(resp).Encode(map[string]string{"message": "budget exceeded"})
+			return
+		}
 		log.WithError(err).Error("add URL request failed")
 		uh.internalServerError(err, resp)
 		return
@@ -99,13 +113,26 @@ func (uh *URLHandler) fetchUrlHandle(resp http.ResponseWriter, req *http.Request
 		return
 	}
 
+	customer, ok := middleware.CustomerFromContext(req.Context())
+	if !ok {
+		resp.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
 	log.Debug("processing fetch URL request")
 
-	// TODO: check the url owner
 	urlData, err := uh.urlService.Fetch(req.Context(), token)
 	if err != nil {
 		log.WithError(err).Error("fetch URL request failed")
 		uh.internalServerError(err, resp)
+		return
+	}
+
+	if urlData.CustomerID != customer.ID {
+		log.Warn("customer does not own this URL")
+		resp.WriteHeader(http.StatusForbidden)
+		// nolint:errcheck
+		json.NewEncoder(resp).Encode(map[string]string{"message": "forbidden"})
 		return
 	}
 
@@ -134,10 +161,30 @@ func (uh *URLHandler) deleteUrlHandle(resp http.ResponseWriter, req *http.Reques
 		return
 	}
 
+	customer, ok := middleware.CustomerFromContext(req.Context())
+	if !ok {
+		resp.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
 	log.Info("processing delete URL request")
 
-	// TODO: check the url owner
-	err := uh.urlService.Delete(req.Context(), token)
+	urlData, err := uh.urlService.Fetch(req.Context(), token)
+	if err != nil {
+		log.WithError(err).Error("delete URL request failed (fetch)")
+		uh.internalServerError(err, resp)
+		return
+	}
+
+	if urlData.CustomerID != customer.ID {
+		log.Warn("customer does not own this URL")
+		resp.WriteHeader(http.StatusForbidden)
+		// nolint:errcheck
+		json.NewEncoder(resp).Encode(map[string]string{"message": "forbidden"})
+		return
+	}
+
+	err = uh.urlService.Delete(req.Context(), token)
 	if err != nil {
 		log.WithError(err).Error("delete URL request failed")
 		uh.internalServerError(err, resp)

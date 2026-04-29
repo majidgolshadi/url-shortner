@@ -37,6 +37,7 @@ type Service struct {
 	tokenGenerator token.Generator
 	repository     storage.Repository
 	ogFetcher      OgFetcher
+	budget         int
 	logger         *logrus.Entry
 
 	// metrics
@@ -54,7 +55,7 @@ type Service struct {
 }
 
 // NewService creates a new URL service.
-func NewService(idProvider IDProvider, tokenGenerator token.Generator, repository storage.Repository, ogFetcher OgFetcher, logger *logrus.Entry) *Service {
+func NewService(idProvider IDProvider, tokenGenerator token.Generator, repository storage.Repository, ogFetcher OgFetcher, budget int, logger *logrus.Entry) *Service {
 	meter := telemetry.Meter("url-shortener/usecase/url")
 
 	addCounter, _ := meter.Int64Counter("url.add.total",
@@ -86,6 +87,7 @@ func NewService(idProvider IDProvider, tokenGenerator token.Generator, repositor
 		tokenGenerator:   tokenGenerator,
 		repository:       repository,
 		ogFetcher:        ogFetcher,
+		budget:           budget,
 		logger:           logger,
 		addCounter:       addCounter,
 		addErrCounter:    addErrCounter,
@@ -99,9 +101,9 @@ func NewService(idProvider IDProvider, tokenGenerator token.Generator, repositor
 	}
 }
 
-// Add creates a shortened URL with optional custom headers.
+// Add creates a shortened URL with optional custom headers for the given customer.
 // It retries on token conflicts up to maxGeneratedTokenConflictRetry times.
-func (s *Service) Add(ctx context.Context, url string, headers map[string]string) (string, error) {
+func (s *Service) Add(ctx context.Context, url string, headers map[string]string, customerID string) (string, error) {
 	ctx, span := telemetry.Tracer("url-shortener/usecase/url").Start(ctx, "Service.Add")
 	defer span.End()
 
@@ -112,6 +114,23 @@ func (s *Service) Add(ctx context.Context, url string, headers map[string]string
 	log.Info("shortening URL")
 
 	span.SetAttributes(attribute.String("url.original", url))
+
+	count, err := s.repository.CountByCustomer(ctx, customerID)
+	if err != nil {
+		s.addErrCounter.Add(ctx, 1)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to count customer URLs")
+		log.WithError(err).Error("failed to count customer URLs for budget check")
+		s.addDuration.Record(ctx, float64(time.Since(start).Milliseconds()))
+		return "", err
+	}
+	if count >= s.budget {
+		s.addErrCounter.Add(ctx, 1)
+		span.SetStatus(codes.Error, "budget exceeded")
+		log.WithField("count", count).Warn("customer has reached URL budget limit")
+		s.addDuration.Record(ctx, float64(time.Since(start).Milliseconds()))
+		return "", intErr.BudgetExceededErr
+	}
 
 	var lastErr error
 	for i := 0; i < maxGeneratedTokenConflictRetry; i++ {
@@ -129,9 +148,10 @@ func (s *Service) Add(ctx context.Context, url string, headers map[string]string
 		span.SetAttributes(attribute.String("url.token", tok))
 
 		lastErr = s.repository.Save(ctx, &domain.URL{
-			Path:    url,
-			Token:   tok,
-			Headers: headers,
+			Path:       url,
+			Token:      tok,
+			Headers:    headers,
+			CustomerID: customerID,
 		})
 
 		if lastErr == nil {
