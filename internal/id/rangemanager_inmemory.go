@@ -16,6 +16,8 @@ func NewInMemoryRangeManager(startID uint) RangeManager {
 }
 
 func (c *inMemory) getCurrentRange(ctx context.Context) (domain.Range, error) {
+	// ^uint(0) is max uint — effectively unbounded, for single-node or test mode
+	// where DB coordination is not needed.
 	return domain.Range{
 		Start: c.startID,
 		End:   ^uint(0),

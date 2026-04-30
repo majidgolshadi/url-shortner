@@ -57,7 +57,7 @@ func (f *Fetcher) FetchOgHTML(ctx context.Context, targetURL string) string {
 		return ""
 	}
 
-	// Limit reading to 1MB to avoid excessive memory usage
+	// OG tags live in <head>, so 1MB is sufficient; reading the full body would waste memory.
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		return ""
@@ -139,7 +139,7 @@ func parseOgTags(htmlContent string) ogData {
 				}
 			}
 
-			// Stop parsing after </head> for efficiency
+			// OG meta tags must appear in <head>; stop at <body> to avoid scanning the full document.
 			if tagName == "body" {
 				if og.Title == "" && fallbackTitle != "" {
 					og.Title = fallbackTitle

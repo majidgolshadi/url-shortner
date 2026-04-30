@@ -66,6 +66,8 @@ func runServer() error {
 
 	logger.Info("telemetry initialized")
 
+	// Coordination DB is separate from the app DB so range reservation can be
+	// scaled or failed over independently from URL data storage.
 	coordinationDB, err := sql.NewDBFactory(newDBConfig(cfg.ServiceName, cfg.Coordination.DataStore)).CreateDB()
 	if err != nil {
 		return err
@@ -74,6 +76,8 @@ func runServer() error {
 	coordinationStorage := mysqlRepo.NewCoordinator(coordinationDB, logger.WithField("component", "coordinator"))
 	rangeMng := id.NewDataStoreRangeManager(cfg.Coordination.NodeID, cfg.Coordination.RangeSize, coordinationStorage)
 
+	// ID manager must claim a range before the server starts accepting traffic;
+	// 3s is enough for a healthy DB but short enough to fail fast on startup.
 	startupCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -93,6 +97,7 @@ func runServer() error {
 	customerSrv := customer.NewService(customerRepo, logger.WithField("component", "customer_service"))
 
 	ogFetchTimeout := cfg.OpenGraph.FetchTimeoutSec
+	// A zero value means the field was omitted from config; fall back to a safe default.
 	if ogFetchTimeout <= 0 {
 		ogFetchTimeout = 10
 	}

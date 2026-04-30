@@ -10,9 +10,8 @@ import (
 type HealthCheckService struct {
 	hostname    string
 	extraChecks map[string]HealthCheck
-	// livenessFlag used to store/change the apprlication readiness and liveness state
-	// false - the application is not ready yet
-	// true - The application is ready to serve requests
+	// livenessFlag enables graceful drain: set it to false to stop traffic before shutdown
+	// without terminating in-flight requests immediately.
 	livenessFlag bool
 }
 

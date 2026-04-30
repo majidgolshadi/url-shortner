@@ -219,7 +219,7 @@ func (uh *URLHandler) redirectHandle(resp http.ResponseWriter, req *http.Request
 		return
 	}
 
-	// If the request is from a known bot/crawler and we have OG metadata, serve HTML with OG tags
+	// Bots often do not follow redirects; serving OG HTML directly ensures link previews work.
 	userAgent := req.UserAgent()
 	if opengraph.IsBotRequest(userAgent) && urlData.OgHTML != "" {
 		log.WithField("user_agent", userAgent).Debug("serving OG metadata to bot")
@@ -232,6 +232,7 @@ func (uh *URLHandler) redirectHandle(resp http.ResponseWriter, req *http.Request
 		resp.Header().Set(key, value)
 	}
 
+	// 302 (not 301) so browsers re-validate each visit; 301 would be cached and block URL updates.
 	log.WithField("url", urlData.Path).Debug("redirecting to source URL")
 	http.Redirect(resp, req, urlData.Path, http.StatusFound)
 }

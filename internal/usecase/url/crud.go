@@ -19,6 +19,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+// maxGeneratedTokenConflictRetry: sequential IDs should never collide, but concurrent
+// nodes racing on the same range boundary could produce the same token; retry defensively.
 const maxGeneratedTokenConflictRetry = 3
 
 // OgFetcher abstracts Open Graph metadata fetching.
@@ -115,6 +117,7 @@ func (s *Service) Add(ctx context.Context, url string, headers map[string]string
 
 	span.SetAttributes(attribute.String("url.original", url))
 
+	// Check budget before generating an ID to avoid consuming IDs on requests that will be rejected.
 	count, err := s.repository.CountByCustomer(ctx, customerID)
 	if err != nil {
 		s.addErrCounter.Add(ctx, 1)
@@ -159,7 +162,7 @@ func (s *Service) Add(ctx context.Context, url string, headers map[string]string
 			log.WithField("token", tok).Info("URL shortened successfully")
 			s.addDuration.Record(ctx, float64(time.Since(start).Milliseconds()))
 
-			// Asynchronously fetch and store Open Graph metadata
+			// OG fetch is async so URL creation latency is not bound by external HTTP calls.
 			s.fetchAndStoreOgAsync(url, tok)
 
 			return tok, nil

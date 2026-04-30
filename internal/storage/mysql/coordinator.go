@@ -21,6 +21,8 @@ import (
 	"github.com/majidgolshadi/url-shortner/internal/storage"
 )
 
+// lastReservedIDKey is the single row in nodes_coordination_keys that tracks
+// the global high-water mark of allocated ID ranges across all nodes.
 const lastReservedIDKey = "last_reserved_id"
 
 type coordinator struct {
@@ -240,8 +242,10 @@ func (c *coordinator) TakeFreeRange(ctx context.Context, nodeID string, requeste
 	return c.setRange(ctx, nodeID, requestedRange, version, log)
 }
 
-// setRange updates the current coordination with the latest reserved range.
-// It also journals the request for traceability and potential future debugging.
+// setRange uses a transaction to atomically update the high-water mark and append a journal entry.
+// The journal (node_range_journal) provides an audit trail of which node held which range.
+// The version field in nodes_coordination_keys acts as an optimistic lock:
+// only the node that read version N can write version N+1, preventing split-brain range allocation.
 func (c *coordinator) setRange(ctx context.Context, nodeID string, requestedRange domain.Range, version int, log *logrus.Entry) error {
 	span := trace.SpanFromContext(ctx)
 

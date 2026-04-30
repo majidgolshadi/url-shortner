@@ -84,6 +84,7 @@ func (s *Server) setupRoutes(tag string, commit string) *mux.Router {
 
 	router.HandleFunc("/customer", customerHandler.registerHandle).Methods(http.MethodPost)
 
+	// Subrouter scopes auth middleware to /url/* only; the /{token} redirect must remain public.
 	authMiddleware := middleware.Auth(s.custService)
 	urlRoutes := router.PathPrefix("/url").Subrouter()
 	urlRoutes.Use(authMiddleware)
@@ -94,7 +95,7 @@ func (s *Server) setupRoutes(tag string, commit string) *mux.Router {
 
 	router.HandleFunc("/healthcheck", hc.Handle)
 
-	// Redirect route: when a user visits /{token}, redirect to the original URL with custom headers
+	// Registered last so more specific /url/* and /customer routes take precedence.
 	router.HandleFunc("/{token}", urlHandler.redirectHandle).Methods(http.MethodGet)
 
 	return router
