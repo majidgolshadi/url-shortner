@@ -14,8 +14,8 @@ type Generator interface {
 // Base62TokenGenerator generates tokens using base62 encoding.
 type Base62TokenGenerator struct{}
 
-// GetToken divides the input integer ID into segments, each with a maximum length of 10, as per the max base62 token length.
-// It returns the result as a concatenated string of generated tokens for each segment.
+// GetToken chunks the integer ID because the base62 library has a fixed MaxTokenLength.
+// Large IDs that exceed that length are split, encoded separately, and concatenated.
 func (tg *Base62TokenGenerator) GetToken(id uint) string {
 	strID := strconv.Itoa(int(id))
 	var result strings.Builder

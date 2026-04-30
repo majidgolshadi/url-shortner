@@ -23,12 +23,16 @@ const (
 	NotURLOwnerErr = errorStr("not url owner")
 )
 
+// errorStr is a typed string constant so errors.Is() comparisons work without allocation
+// and cannot accidentally match unrelated string errors.
 type errorStr string
 
 func (err errorStr) Error() string {
 	return string(err)
 }
 
+// Is unwraps both pkg/errors and fmt.Errorf chains so callers can use errors.Is()
+// regardless of how the error was wrapped.
 func (err errorStr) Is(target error) bool {
 	targetError, ok := target.(errorStr)
 	if ok {

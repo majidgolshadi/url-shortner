@@ -116,6 +116,7 @@ func initTracerProvider(ctx context.Context, cfg Config, res *resource.Resource)
 		opts := []otlptracehttp.Option{
 			otlptracehttp.WithEndpoint(cfg.OTLPEndpoint),
 		}
+		// TLS is skipped only in development; staging/production must use a secure collector.
 		if cfg.Environment == "development" {
 			opts = append(opts, otlptracehttp.WithInsecure())
 		}
@@ -145,6 +146,7 @@ func initMeterProvider(ctx context.Context, cfg Config, res *resource.Resource) 
 		opts := []otlpmetrichttp.Option{
 			otlpmetrichttp.WithEndpoint(cfg.OTLPEndpoint),
 		}
+		// TLS is skipped only in development; staging/production must use a secure collector.
 		if cfg.Environment == "development" {
 			opts = append(opts, otlpmetrichttp.WithInsecure())
 		}

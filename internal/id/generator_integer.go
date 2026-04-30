@@ -2,6 +2,8 @@ package id
 
 import "sync"
 
+// IntegerIdGenerator is a simple monotonic counter.
+// Mutex is required because multiple goroutines may call NewID concurrently.
 type IntegerIdGenerator struct {
 	mux sync.Mutex
 	id  uint

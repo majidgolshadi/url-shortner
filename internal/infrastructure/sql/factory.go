@@ -41,6 +41,7 @@ func (f *DBFactory) CreateDB() (*sqlx.DB, error) {
 	}
 
 	db.SetMaxOpenConns(f.config.MaxOpenConns)
+	// ConnMaxLifetime prevents stale connections after MySQL's wait_timeout drops idle ones.
 	db.SetConnMaxLifetime(f.config.ConnMaxLifetime)
 
 	return db, nil

@@ -14,8 +14,12 @@ import (
 )
 
 const (
+	// reserveRangeMaxRetry: version mismatch means another node grabbed the range;
+	// retry a few times before giving up to handle burst contention.
 	reserveRangeMaxRetry = 3
 
+	// 200ms gives other nodes time to finish their transaction before we retry,
+	// reducing thundering-herd when many nodes start simultaneously.
 	reserveRangeWaitingTimeMillisecond = 200
 )
 
@@ -78,7 +82,7 @@ func (c *datastoreRangeManager) getNextIDRange(ctx context.Context) (domain.Rang
 
 		// TODO: log the error as warning
 
-		// wait and then retry
+		// version conflict: another node already claimed this range; backoff and retry
 		time.Sleep(reserveRangeWaitingTimeMillisecond * time.Millisecond)
 	}
 

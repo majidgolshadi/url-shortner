@@ -12,7 +12,8 @@ import (
 // ContextKey is the type used for context keys in this package.
 type ContextKey string
 
-// TestCustomerContextKey is exported so tests in other packages can inject a customer into context.
+// TestCustomerContextKey is exported so integration tests can bypass DB lookup
+// by injecting a customer directly into the request context.
 const TestCustomerContextKey ContextKey = "customer"
 
 const customerContextKey = TestCustomerContextKey
