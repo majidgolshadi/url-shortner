@@ -7,7 +7,7 @@ bin/
 *.dylib
 
 # Build output
-server
+/server
 
 # Test binary, built with `go test -c`
 *.test
