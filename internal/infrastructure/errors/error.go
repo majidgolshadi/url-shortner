@@ -15,6 +15,12 @@ const (
 
 	// RangeManagerNoReservedRangeErr ...
 	RangeManagerNoReservedRangeErr = errorStr("node hasn't reserved any range yet")
+
+	// BudgetExceededErr is returned when a customer has reached their URL creation limit.
+	BudgetExceededErr = errorStr("budget exceeded")
+
+	// NotURLOwnerErr is returned when a customer tries to access a URL they do not own.
+	NotURLOwnerErr = errorStr("not url owner")
 )
 
 type errorStr string

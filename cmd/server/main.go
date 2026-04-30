@@ -15,6 +15,7 @@ import (
 	"github.com/majidgolshadi/url-shortner/internal/server/protocol/http"
 	mysqlRepo "github.com/majidgolshadi/url-shortner/internal/storage/mysql"
 	"github.com/majidgolshadi/url-shortner/internal/token"
+	"github.com/majidgolshadi/url-shortner/internal/usecase/customer"
 	"github.com/majidgolshadi/url-shortner/internal/usecase/url"
 )
 
@@ -88,15 +89,18 @@ func runServer() error {
 
 	repo := mysqlRepo.NewRepository(appDB, logger.WithField("component", "repository"))
 
+	customerRepo := mysqlRepo.NewCustomerRepository(appDB, logger.WithField("component", "customer_repository"))
+	customerSrv := customer.NewService(customerRepo, logger.WithField("component", "customer_service"))
+
 	ogFetchTimeout := cfg.OpenGraph.FetchTimeoutSec
 	if ogFetchTimeout <= 0 {
 		ogFetchTimeout = 10
 	}
 	ogFetcher := opengraph.NewFetcher(ogFetchTimeout)
 
-	urlSrv := url.NewService(idMng, &token.Base62TokenGenerator{}, repo, ogFetcher, logger.WithField("component", "url_service"))
+	urlSrv := url.NewService(idMng, &token.Base62TokenGenerator{}, repo, ogFetcher, cfg.Customer.DefaultBudget, logger.WithField("component", "url_service"))
 
-	httpSrv := http.NewHTTPServer(urlSrv, logger, cfg.ServiceName)
+	httpSrv := http.NewHTTPServer(urlSrv, customerSrv, logger, cfg.ServiceName)
 	return httpSrv.Run(Tag, CommitHash, cfg.HTTPAddr)
 }
 

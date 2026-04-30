@@ -12,23 +12,33 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 
+	"github.com/majidgolshadi/url-shortner/internal/domain"
 	"github.com/majidgolshadi/url-shortner/internal/server/protocol/http/middleware"
 	"github.com/majidgolshadi/url-shortner/internal/usecase"
 )
 
 const shutdownTimeout = 5 * time.Second
 
+// customerService is a combined interface used by the server to satisfy both
+// the customer handler and the auth middleware.
+type customerService interface {
+	Register(ctx context.Context) (*domain.Customer, error)
+	FindByAuthToken(ctx context.Context, authToken string) (*domain.Customer, error)
+}
+
 // Server holds HTTP server dependencies.
 type Server struct {
 	urlService  URLService
+	custService customerService
 	logger      *logrus.Entry
 	serviceName string
 }
 
 // NewHTTPServer creates a new HTTP server instance.
-func NewHTTPServer(urlService URLService, logger *logrus.Entry, serviceName string) *Server {
+func NewHTTPServer(urlService URLService, custService customerService, logger *logrus.Entry, serviceName string) *Server {
 	return &Server{
 		urlService:  urlService,
+		custService: custService,
 		logger:      logger,
 		serviceName: serviceName,
 	}
@@ -61,6 +71,7 @@ func (s *Server) Run(tag string, commit string, httpPort string) error {
 
 func (s *Server) setupRoutes(tag string, commit string) *mux.Router {
 	urlHandler := NewURLHandler(s.urlService, s.logger)
+	customerHandler := NewCustomerHandler(s.custService, s.logger)
 
 	hcs := usecase.NewHealthCheckService()
 	hc := NewHealthCheckHandler(tag, commit, s.logger, hcs)
@@ -71,7 +82,11 @@ func (s *Server) setupRoutes(tag string, commit string) *mux.Router {
 	router.Use(otelmux.Middleware(s.serviceName))
 	router.Use(middleware.ContentType)
 
+	router.HandleFunc("/customer", customerHandler.registerHandle).Methods(http.MethodPost)
+
+	authMiddleware := middleware.Auth(s.custService)
 	urlRoutes := router.PathPrefix("/url").Subrouter()
+	urlRoutes.Use(authMiddleware)
 	urlRoutes.HandleFunc("", urlHandler.addUrlHandle).Methods(http.MethodPost)
 	urlRoutes.HandleFunc("/{token}", urlHandler.fetchUrlHandle).Methods(http.MethodGet)
 	urlRoutes.HandleFunc("/{token}", urlHandler.deleteUrlHandle).Methods(http.MethodDelete)

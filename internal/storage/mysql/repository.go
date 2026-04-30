@@ -19,10 +19,11 @@ import (
 )
 
 type sqlRow struct {
-	Token   string         `db:"token"` // primary key
-	URL     string         `db:"url"`
-	Headers sql.NullString `db:"headers"`
-	OgHTML  sql.NullString `db:"og_html"`
+	Token      string         `db:"token"` // primary key
+	URL        string         `db:"url"`
+	Headers    sql.NullString `db:"headers"`
+	OgHTML     sql.NullString `db:"og_html"`
+	CustomerID string         `db:"customer_id"`
 }
 type repository struct {
 	db     *sqlx.DB
@@ -80,8 +81,8 @@ func (r *repository) Save(ctx context.Context, url *domain.URL) error {
 		}
 	}
 
-	sqlStmt := `INSERT INTO url_token(token, url, headers) VALUES(?, ?, ?);`
-	_, err := r.db.ExecContext(ctx, sqlStmt, url.Token, url.Path, headersJSON)
+	sqlStmt := `INSERT INTO url_token(token, url, headers, customer_id) VALUES(?, ?, ?, ?);`
+	_, err := r.db.ExecContext(ctx, sqlStmt, url.Token, url.Path, headersJSON, url.CustomerID)
 
 	duration := float64(time.Since(start).Milliseconds())
 	r.queryDuration.Record(ctx, duration, otelmetric.WithAttributes(
@@ -163,7 +164,7 @@ func (r *repository) Fetch(ctx context.Context, token string) (*domain.URL, erro
 	log.Debug("fetching URL from database")
 
 	row := sqlRow{}
-	err := r.db.GetContext(ctx, &row, `SELECT token, url, headers, og_html FROM url_token WHERE token = ?;`, token)
+	err := r.db.GetContext(ctx, &row, `SELECT token, url, headers, og_html, customer_id FROM url_token WHERE token = ?;`, token)
 
 	duration := float64(time.Since(start).Milliseconds())
 	r.queryDuration.Record(ctx, duration, otelmetric.WithAttributes(
@@ -198,10 +199,11 @@ func (r *repository) Fetch(ctx context.Context, token string) (*domain.URL, erro
 	}
 
 	return &domain.URL{
-		Path:    row.URL,
-		Token:   row.Token,
-		Headers: headers,
-		OgHTML:  ogHTML,
+		Path:       row.URL,
+		Token:      row.Token,
+		Headers:    headers,
+		OgHTML:     ogHTML,
+		CustomerID: row.CustomerID,
 	}, nil
 }
 
@@ -243,6 +245,47 @@ func (r *repository) UpdateOgHTML(ctx context.Context, token string, ogHTML stri
 	span.SetStatus(codes.Ok, "OG HTML updated successfully")
 	log.Debug("OG HTML updated in database successfully")
 	return nil
+}
+
+func (r *repository) CountByCustomer(ctx context.Context, customerID string) (int, error) {
+	ctx, span := telemetry.Tracer("url-shortener/storage/mysql").Start(ctx, "Repository.CountByCustomer")
+	defer span.End()
+
+	start := time.Now()
+	log := intLogger.WithContext(ctx, r.logger).WithFields(logrus.Fields{
+		"operation":   "count_by_customer",
+		"customer_id": customerID,
+	})
+
+	span.SetAttributes(
+		attribute.String("db.system", "mysql"),
+		attribute.String("db.operation", "SELECT"),
+		attribute.String("db.table", "url_token"),
+	)
+
+	log.Debug("counting URLs for customer")
+
+	var count int
+	err := r.db.GetContext(ctx, &count, `SELECT COUNT(*) FROM url_token WHERE customer_id = ?;`, customerID)
+
+	duration := float64(time.Since(start).Milliseconds())
+	r.queryDuration.Record(ctx, duration, otelmetric.WithAttributes(
+		attribute.String("db.operation", "SELECT"),
+	))
+
+	if err != nil {
+		r.queryErrors.Add(ctx, 1, otelmetric.WithAttributes(
+			attribute.String("db.operation", "SELECT"),
+		))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to count URLs for customer")
+		log.WithError(err).Error("failed to count URLs for customer")
+		return 0, err
+	}
+
+	span.SetStatus(codes.Ok, "counted URLs for customer successfully")
+	log.WithField("count", count).Debug("counted URLs for customer")
+	return count, nil
 }
 
 func (r *repository) HealthCheck(ctx context.Context) (bool, interface{}) {
