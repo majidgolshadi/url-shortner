@@ -78,6 +78,24 @@ func TestErrorType_Is(t *testing.T) {
 			},
 			equal: false,
 		},
+		"target is a plain error (not errorStr, not causer, not unwrapper)": {
+			err: func() error {
+				return CoordinatorDataInvalidVersionErr
+			},
+			target: func() error {
+				return errors.New("some plain error")
+			},
+			equal: false,
+		},
+		"two different errorStr values": {
+			err: func() error {
+				return CoordinatorDataInvalidVersionErr
+			},
+			target: func() error {
+				return CoordinatorNoReservedRangeErr
+			},
+			equal: false,
+		},
 	}
 
 	for name, test := range tests {

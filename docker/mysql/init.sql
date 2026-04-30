@@ -21,14 +21,27 @@ CREATE TABLE `nodes_coordination_keys` (
 
 # ------------------------------------------------------------
 
+DROP TABLE IF EXISTS `customer`;
+
+CREATE TABLE `customer` (
+    `id`         VARCHAR(36)  NOT NULL,
+    `auth_token` VARCHAR(64)  NOT NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_customer_auth_token` (`auth_token`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+# ------------------------------------------------------------
+
 DROP TABLE IF EXISTS `url_token`;
 
 CREATE TABLE `url_token` (
-   `token` VARCHAR(100) NOT NULL,
-   `url` VARCHAR(100) NOT NULL,
-   `headers` JSON DEFAULT NULL,
-   `og_html` TEXT DEFAULT NULL,
-   PRIMARY KEY (`token`)
+   `token`       VARCHAR(100) NOT NULL,
+   `url`         VARCHAR(100) NOT NULL,
+   `headers`     JSON         DEFAULT NULL,
+   `og_html`     TEXT         DEFAULT NULL,
+   `customer_id` VARCHAR(36)  NOT NULL DEFAULT '',
+   PRIMARY KEY (`token`),
+   KEY `idx_url_token_customer_id` (`customer_id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
 # ------------------------------------------------------------

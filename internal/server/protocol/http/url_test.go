@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/majidgolshadi/url-shortner/internal/domain"
+	intErr "github.com/majidgolshadi/url-shortner/internal/infrastructure/errors"
 	"github.com/majidgolshadi/url-shortner/internal/server/protocol/http/middleware"
 )
 
@@ -23,6 +24,9 @@ type urlServiceMock struct{}
 func (mock *urlServiceMock) Add(_ context.Context, url string, _ map[string]string, _ string) (string, error) {
 	if url == "http://successful-url.com" {
 		return "token", nil
+	}
+	if url == "http://budget-exceeded-url.com" {
+		return "", intErr.BudgetExceededErr
 	}
 	return "", errors.New("dummy error")
 }
@@ -58,6 +62,13 @@ func (mock *urlServiceMock) Fetch(_ context.Context, token string) (*domain.URL,
 			Path:       "http://other-url.com",
 			Token:      "other-owner-token",
 			CustomerID: "some-other-customer-id",
+		}, nil
+	}
+	if token == "delete-fail-token" {
+		return &domain.URL{
+			Path:       "http://delete-fail-url.com",
+			Token:      "delete-fail-token",
+			CustomerID: testCustomerID,
 		}, nil
 	}
 	return nil, errors.New("dummy error")
@@ -122,6 +133,12 @@ func TestAddUrlHandle(t *testing.T) {
 			injectCustomer:         true,
 			expectedRespStatusCode: http.StatusInternalServerError,
 			expectedRespBody:       "{\"message\":\"dummy error\"}\n",
+		},
+		"valid request - budget exceeded": {
+			requestBody:            `{"url":"http://budget-exceeded-url.com"}`,
+			injectCustomer:         true,
+			expectedRespStatusCode: http.StatusPaymentRequired,
+			expectedRespBody:       "{\"message\":\"budget exceeded\"}\n",
 		},
 	}
 
@@ -378,6 +395,13 @@ func TestDeleteUrlHandle(t *testing.T) {
 			customerID:             testCustomerID,
 			expectedRespStatusCode: http.StatusForbidden,
 			expectedRespBody:       "{\"message\":\"forbidden\"}\n",
+		},
+		"valid request - delete fails after ownership check": {
+			token:                  "delete-fail-token",
+			injectCustomer:         true,
+			customerID:             testCustomerID,
+			expectedRespStatusCode: http.StatusInternalServerError,
+			expectedRespBody:       "{\"message\":\"dummy error\"}\n",
 		},
 	}
 
